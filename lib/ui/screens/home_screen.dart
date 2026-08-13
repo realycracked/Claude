@@ -57,8 +57,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (c.status == LoadStatus.loading && !c.repo.isLoaded) {
-      return const HomeSkeleton();
+    if (c.status == LoadStatus.loading) {
+      return _LoadingState(step: c.loadStep);
+    }
+
+    if (c.status == LoadStatus.error || c.totalItems == 0) {
+      return _ErrorState(
+        message: c.errorMessage ?? 'Aucun contenu trouvé.',
+        details: c.loadErrors,
+        onRetry: () => c.reloadCatalog(force: true),
+      );
     }
 
     final rows = _applyFilter(c.homeRows);
@@ -352,6 +360,141 @@ class _Top10Row extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Chargement avec l'étape en cours affichée (pas juste un rond qui tourne).
+class _LoadingState extends StatelessWidget {
+  const _LoadingState({required this.step});
+  final String step;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const HomeSkeleton(),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 40,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppConfig.instance.accentColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 240),
+                    child: Text(
+                      step.isEmpty ? 'Chargement…' : step,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Erreur explicite avec le détail de ce qui a échoué + bouton réessayer.
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.details,
+    required this.onRetry,
+  });
+  final String message;
+  final List<String> details;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 64, color: Colors.white24),
+              const SizedBox(height: 16),
+              const Text('Catalogue vide',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white54),
+              ),
+              if (details.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Détails',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                              color: Colors.white38)),
+                      const SizedBox(height: 8),
+                      for (final d in details.take(6))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text('• $d',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.white60)),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 22),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+              TextButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddSourceScreen()),
+                ),
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter une autre source'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

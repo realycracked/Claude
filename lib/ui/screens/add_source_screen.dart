@@ -22,6 +22,8 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
   final _epg = TextEditingController();
   bool _testing = false;
   String? _error;
+  String _step = '';
+  final List<String> _doneSteps = [];
 
   @override
   void dispose() {
@@ -128,6 +130,56 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
                     : const Text('Tester et ajouter'),
               ),
             ),
+            // Progression détaillée du chargement (au lieu d'un simple rond).
+            if (_testing) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.downloading, size: 18, color: Colors.white54),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _step.isEmpty ? 'Connexion…' : _step,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_doneSteps.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      for (final d in _doneSteps.reversed.take(6))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check,
+                                  size: 13, color: Color(0xFF46D369)),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(d,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 11.5, color: Colors.white54)),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -143,6 +195,8 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
     setState(() {
       _testing = true;
       _error = null;
+      _step = 'Connexion au serveur…';
+      _doneSteps.clear();
     });
 
     final source = IptvSource(
@@ -159,10 +213,12 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
       final x = XtreamService();
       try {
         await x.authenticate(source);
+        setState(() => _doneSteps.add('Identifiants validés'));
       } catch (_) {
         x.dispose();
         setState(() {
           _testing = false;
+          _step = '';
           _error = 'Connexion impossible. Vérifie l\'URL et les identifiants.';
         });
         return;
@@ -171,12 +227,40 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
     }
 
     if (!mounted) return;
-    await context.read<AppController>().addSource(source);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Source « ${source.name} » ajoutée')),
-      );
-      Navigator.pop(context);
+    final c = context.read<AppController>();
+
+    // Suit les étapes réelles du chargement du catalogue.
+    c.addListener(_onControllerTick);
+    await c.addSource(source);
+    c.removeListener(_onControllerTick);
+
+    if (!mounted) return;
+    final total = c.totalItems;
+    if (total == 0) {
+      setState(() {
+        _testing = false;
+        _step = '';
+        _error = c.loadErrors.isNotEmpty
+            ? c.loadErrors.first
+            : 'Source ajoutée, mais aucun contenu trouvé.';
+      });
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('« ${source.name} » ajoutée — $total éléments')),
+    );
+    Navigator.pop(context);
+  }
+
+  void _onControllerTick() {
+    if (!mounted) return;
+    final c = context.read<AppController>();
+    final s = c.loadStep;
+    if (s.isEmpty || s == _step) return;
+    setState(() {
+      if (_step.isNotEmpty) _doneSteps.add(_step);
+      _step = s;
+    });
   }
 }

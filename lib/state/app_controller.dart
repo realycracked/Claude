@@ -116,12 +116,11 @@ class AppController extends ChangeNotifier {
   }
 
   Future<Profile> createProfile(String name,
-      {bool isKids = false, String avatar = 'avatar_1'}) async {
+      {String avatar = 'avatar_1'}) async {
     final p = Profile(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: name,
       avatar: avatar,
-      isKids: isKids,
     );
     profiles = [...profiles, p];
     await local.saveProfiles(profiles);
@@ -214,6 +213,15 @@ class AppController extends ChangeNotifier {
   }
 
   // ---- Catalogue ---------------------------------------------------------
+  /// Étape de chargement en cours, affichée à l'écran.
+  String loadStep = '';
+
+  /// Problèmes rencontrés au dernier chargement.
+  List<String> get loadErrors => repo.loadErrors;
+
+  int get totalItems =>
+      repo.movies.length + repo.series.length + repo.live.length;
+
   Future<void> reloadCatalog({bool force = false}) async {
     if (sources.isEmpty) {
       status = LoadStatus.ready;
@@ -222,13 +230,28 @@ class AppController extends ChangeNotifier {
     }
     status = LoadStatus.loading;
     errorMessage = null;
+    loadStep = 'Préparation…';
     notifyListeners();
+
+    repo.onProgress = (step) {
+      loadStep = step;
+      notifyListeners();
+    };
+
     try {
       await repo.loadAll(sources, force: force);
-      status = LoadStatus.ready;
+      status = totalItems == 0 ? LoadStatus.error : LoadStatus.ready;
+      if (totalItems == 0) {
+        errorMessage = repo.loadErrors.isNotEmpty
+            ? repo.loadErrors.first
+            : 'Aucun contenu trouvé.';
+      }
     } catch (e) {
       status = LoadStatus.error;
       errorMessage = e.toString();
+    } finally {
+      repo.onProgress = null;
+      loadStep = '';
     }
     notifyListeners();
   }

@@ -176,9 +176,6 @@ class _ProfileTile extends StatelessWidget {
             style: const TextStyle(
                 color: Colors.white70, fontWeight: FontWeight.w600),
           ),
-          if (profile.isKids)
-            const Text('Enfant',
-                style: TextStyle(color: Colors.white38, fontSize: 11)),
         ],
       ),
     );
@@ -228,7 +225,6 @@ class _ProfileEditor extends StatefulWidget {
 class _ProfileEditorState extends State<_ProfileEditor> {
   late final TextEditingController _name =
       TextEditingController(text: widget.profile?.name ?? '');
-  late bool _isKids = widget.profile?.isKids ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -254,14 +250,6 @@ class _ProfileEditorState extends State<_ProfileEditor> {
             controller: _name,
             autofocus: true,
             decoration: const InputDecoration(hintText: 'Nom du profil'),
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _isKids,
-            onChanged: (v) => setState(() => _isKids = v),
-            title: const Text('Profil enfant'),
-            subtitle: const Text('Contenu limité et adapté'),
           ),
           const SizedBox(height: 8),
           Row(
@@ -292,9 +280,9 @@ class _ProfileEditorState extends State<_ProfileEditor> {
     final name = _name.text.trim();
     if (name.isEmpty) return;
     if (widget.profile == null) {
-      await c.createProfile(name, isKids: _isKids);
+      await c.createProfile(name);
     } else {
-      await c.updateProfile(widget.profile!.copyWith(name: name, isKids: _isKids));
+      await c.updateProfile(widget.profile!.copyWith(name: name));
     }
     if (mounted) Navigator.pop(context);
   }

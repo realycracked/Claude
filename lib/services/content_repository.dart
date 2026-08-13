@@ -58,41 +58,109 @@ class ContentRepository {
   /// Applique la langue choisie dans les réglages (affiches/résumés TMDB).
   void applyLanguage(String language) => tmdb.languageOverride = language;
 
+  /// Journal des problèmes rencontrés au dernier chargement (affiché à l'écran).
+  final List<String> loadErrors = [];
+
+  /// Callback de progression : message lisible + nombre d'éléments chargés.
+  void Function(String step)? onProgress;
+  void _step(String s) => onProgress?.call(s);
+
   /// Charge (ou recharge) tout le catalogue à partir des sources actives.
   Future<void> loadAll(List<IptvSource> sources, {bool force = false}) async {
     if (_loaded && !force) return;
     _live.clear();
     _movies.clear();
     _series.clear();
+    loadErrors.clear();
 
     final active = sources.where((s) => s.isActive).toList();
+    if (active.isEmpty) {
+      loadErrors.add('Aucune source active.');
+      _loaded = true;
+      return;
+    }
+
     for (final src in active) {
-      try {
-        if (src.isXtream) {
-          await _loadXtream(src);
-        } else {
-          await _loadM3u(src);
-        }
-      } catch (_) {
-        // Une source en erreur ne casse pas les autres.
+      _step('Connexion à « ${src.name} »…');
+      if (src.isXtream) {
+        await _loadXtream(src);
+      } else {
+        await _loadM3u(src);
       }
     }
 
+    _step('Organisation du catalogue…');
     _dedupe(_movies);
     _dedupe(_series);
+
+    _step('Chargement du guide TV…');
     await _loadEpg(active);
+
+    if (_live.isEmpty && _movies.isEmpty && _series.isEmpty) {
+      loadErrors.add(
+          'Aucun contenu récupéré. Vérifie l\'URL et les identifiants de la source.');
+    }
+    _step('Terminé');
     _loaded = true;
   }
 
-  Future<void> _loadXtream(IptvSource src) async {
-    // Catégories -> nom lisible
-    final liveCats = {for (final c in await _xtream.liveCategories(src)) c.id: c.name};
-    final vodCats = {for (final c in await _xtream.vodCategories(src)) c.id: c.name};
-    final serCats = {for (final c in await _xtream.seriesCategories(src)) c.id: c.name};
+  /// Chaque étape est isolée : si l'une échoue, les autres continuent.
+  Future<T?> _tryStep<T>(String label, String sourceName, Future<T> Function() run) async {
+    try {
+      return await run();
+    } catch (e) {
+      loadErrors.add('$sourceName — $label : ${_short(e)}');
+      return null;
+    }
+  }
 
-    _live.addAll((await _xtream.liveStreams(src)).map((m) => _withCat(m, liveCats)));
-    _movies.addAll((await _xtream.vodStreams(src)).map((m) => _withCat(m, vodCats)));
-    _series.addAll((await _xtream.series(src)).map((m) => _withCat(m, serCats)));
+  String _short(Object e) {
+    final s = e.toString().replaceAll('Exception:', '').trim();
+    if (s.toLowerCase().contains('timeout')) return 'délai dépassé';
+    if (s.toLowerCase().contains('socket') || s.toLowerCase().contains('host')) {
+      return 'serveur injoignable';
+    }
+    return s.length > 90 ? '${s.substring(0, 90)}…' : s;
+  }
+
+  Future<void> _loadXtream(IptvSource src) async {
+    // Chaque appel est indépendant : un panel sans séries n'empêche pas
+    // les films de se charger (et inversement).
+    _step('« ${src.name} » : chaînes en direct…');
+    final liveCats = await _tryStep('catégories live', src.name,
+            () => _xtream.liveCategories(src)) ??
+        <XtreamCategory>[];
+    final liveItems =
+        await _tryStep('chaînes live', src.name, () => _xtream.liveStreams(src));
+    if (liveItems != null) {
+      final map = {for (final c in liveCats) c.id: c.name};
+      _live.addAll(liveItems.map((m) => _withCat(m, map)));
+      _step('« ${src.name} » : ${_live.length} chaînes');
+    }
+
+    _step('« ${src.name} » : films…');
+    final vodCats = await _tryStep('catégories films', src.name,
+            () => _xtream.vodCategories(src)) ??
+        <XtreamCategory>[];
+    final vodItems =
+        await _tryStep('films', src.name, () => _xtream.vodStreams(src));
+    if (vodItems != null) {
+      final map = {for (final c in vodCats) c.id: c.name};
+      _movies.addAll(vodItems.map((m) => _withCat(m, map)));
+      _step('« ${src.name} » : ${_movies.length} films');
+    }
+
+    _step('« ${src.name} » : séries…');
+    final serCats = await _tryStep('catégories séries', src.name,
+            () => _xtream.seriesCategories(src)) ??
+        <XtreamCategory>[];
+    final serItems =
+        await _tryStep('séries', src.name, () => _xtream.series(src));
+    if (serItems != null) {
+      final map = {for (final c in serCats) c.id: c.name};
+      _series.addAll(serItems.map((m) => _withCat(m, map)));
+      _step('« ${src.name} » : ${_series.length} séries');
+    }
   }
 
   MediaItem _withCat(MediaItem m, Map<String, String> cats) {
@@ -122,7 +190,10 @@ class ContentRepository {
   }
 
   Future<void> _loadM3u(IptvSource src) async {
-    final items = await _m3u.loadFromSource(src);
+    _step('« ${src.name} » : téléchargement de la playlist…');
+    final items =
+        await _tryStep('playlist M3U', src.name, () => _m3u.loadFromSource(src));
+    if (items == null) return;
     for (final it in items) {
       switch (it.type) {
         case MediaType.live:
@@ -136,6 +207,7 @@ class ContentRepository {
           break;
       }
     }
+    _step('« ${src.name} » : ${items.length} éléments');
   }
 
   Future<void> _loadEpg(List<IptvSource> sources) async {

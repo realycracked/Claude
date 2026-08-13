@@ -37,6 +37,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late AppSettings _settings;
   Timer? _saveTimer;
   bool _resumed = false;
+  String? _error;
+  bool _opening = true;
+  StreamSubscription? _errorSub;
 
   // État mutable (change lors de l'enchaînement d'épisodes).
   late String _title = widget.title;
@@ -63,13 +66,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Future<void> _open() async {
+    setState(() {
+      _error = null;
+      _opening = true;
+    });
     final headers = <String, String>{
       'User-Agent': AppConfig.instance.playerUserAgent,
       ..._version.headers,
     };
-    await _player.open(Media(_version.url, httpHeaders: headers));
-    if (_settings.playbackSpeed != 1.0) {
-      await _player.setRate(_settings.playbackSpeed);
+    try {
+      await _player.open(Media(_version.url, httpHeaders: headers));
+      if (_settings.playbackSpeed != 1.0) {
+        await _player.setRate(_settings.playbackSpeed);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Lecture impossible : $e');
+    } finally {
+      if (mounted) setState(() => _opening = false);
     }
   }
 
@@ -94,6 +107,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _listenCompletion() {
     _player.stream.completed.listen((done) {
       if (done && _settings.autoplayNext) _playNextEpisode();
+    });
+    // Erreurs du moteur vidéo (flux mort, format non supporté…).
+    _errorSub = _player.stream.error.listen((e) {
+      if (mounted && e.toString().trim().isNotEmpty) {
+        setState(() => _error = e.toString());
+      }
     });
   }
 
@@ -149,6 +168,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _saveProgress();
     _saveTimer?.cancel();
+    _errorSub?.cancel();
     _player.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
@@ -163,16 +183,64 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Video(
-        controller: _controller,
-        controls: AdaptiveVideoControls,
-        subtitleViewConfiguration: const SubtitleViewConfiguration(
-          style: TextStyle(
-            fontSize: 34,
-            color: Colors.white,
-            backgroundColor: Colors.black54,
+      body: Stack(
+        children: [
+          Video(
+            controller: _controller,
+            controls: AdaptiveVideoControls,
+            subtitleViewConfiguration: const SubtitleViewConfiguration(
+              style: TextStyle(
+                fontSize: 34,
+                color: Colors.white,
+                backgroundColor: Colors.black54,
+              ),
+            ),
           ),
-        ),
+          if (_error != null) _errorOverlay(),
+          if (_opening && _error == null)
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorOverlay() {
+    return Container(
+      color: Colors.black87,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 52, color: Colors.white38),
+          const SizedBox(height: 14),
+          const Text('Lecture impossible',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FilledButton.icon(
+                onPressed: _open,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Retour'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
