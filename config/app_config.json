@@ -30,7 +30,7 @@
   },
 
   "tmdb": {
-    "apiKey": "",
+    "apiKey": "242a2b43a180b0ee72e20be8f737c28c",
     "language": "fr-FR",
     "region": "FR",
     "imageBaseUrl": "https://image.tmdb.org/t/p/",
@@ -40,9 +40,9 @@
   },
 
   "supabase": {
-    "url": "",
-    "anonKey": "",
-    "enabled": false
+    "url": "https://npjtyfxnedvxydyezzwx.supabase.co",
+    "anonKey": "sb_publishable_tV1SPyeMUsYm7wOzuKw1VQ_KH1lLZT6",
+    "enabled": true
   },
 
   "secret": {
