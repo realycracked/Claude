@@ -1,0 +1,87 @@
+{
+  "_readme": [
+    "===================================================================",
+    " NOVA - FICHIER DE CONFIGURATION",
+    "===================================================================",
+    " C'est ici que tu mets TES cles et tes reglages.",
+    " - Remplis 'tmdb.apiKey' avec ta cle TMDB (v3 API key).",
+    " - Remplis 'supabase.url' et 'supabase.anonKey' (projet Supabase gratuit).",
+    " - Change 'brand.name' et 'theme.accentColor' si tu veux.",
+    " - 'secret.unlockCommand' est le code invisible a taper dans la",
+    "   barre de recherche pour activer les chaines adultes (defaut: /activeX).",
+    "",
+    " ASTUCE SECURITE : pour ne PAS pousser tes vraies cles sur GitHub,",
+    " copie ce fichier en 'config/app_config.local.json' (ignore par git)",
+    " et mets tes vraies cles dedans. L'app charge le .local.json en priorite.",
+    "===================================================================="
+  ],
+
+  "brand": {
+    "name": "Nova",
+    "tagline": "Tout votre univers, un seul endroit.",
+    "logoAsset": ""
+  },
+
+  "theme": {
+    "accentColor": "#E50914",
+    "backgroundColor": "#0B0B0F",
+    "surfaceColor": "#16161D",
+    "mode": "dark"
+  },
+
+  "tmdb": {
+    "apiKey": "",
+    "language": "fr-FR",
+    "region": "FR",
+    "imageBaseUrl": "https://image.tmdb.org/t/p/",
+    "posterSize": "w500",
+    "backdropSize": "w1280",
+    "enabled": true
+  },
+
+  "supabase": {
+    "url": "",
+    "anonKey": "",
+    "enabled": false
+  },
+
+  "secret": {
+    "unlockCommand": "/activeX",
+    "lockCommand": "/lockX",
+    "unlockMinutes": 30,
+    "adultKeywords": [
+      "xxx", "adult", "adulte", "porn", "18+", "for adults",
+      "erotic", "erotik", "sex", "playboy", "brazzers", "hustler",
+      "vixen", "onlyfans", "hot", "nsfw"
+    ]
+  },
+
+  "features": {
+    "continueWatching": true,
+    "favorites": true,
+    "tmdbEnrichment": true,
+    "epg": true,
+    "catchup": true,
+    "downloads": true,
+    "recording": true,
+    "chromecast": false,
+    "pictureInPicture": true,
+    "parentalPin": true
+  },
+
+  "player": {
+    "preferredQuality": "auto",
+    "userAgent": "NovaPlayer/1.0",
+    "hardwareAcceleration": true,
+    "bufferSeconds": 15,
+    "seekSeconds": 10
+  },
+
+  "cache": {
+    "tmdbTtlHours": 168,
+    "playlistTtlHours": 12,
+    "epgTtlHours": 6
+  },
+
+  "defaultSources": []
+}

@@ -1,0 +1,48 @@
+name: nova
+description: Nova - Lecteur IPTV style Netflix pour téléphone et TV (Android/iOS/Android TV).
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  provider: ^6.1.2
+
+  # Networking
+  http: ^1.2.1
+
+  # Local storage
+  shared_preferences: ^2.2.3
+  path_provider: ^2.1.3
+  flutter_secure_storage: ^9.2.2
+
+  # Images
+  cached_network_image: ^3.3.1
+
+  # Video playback (great cross-platform + Android TV support, handles HLS/TS/etc.)
+  media_kit: ^1.1.10
+  media_kit_video: ^1.2.4
+  media_kit_libs_video: ^1.0.4
+
+  # Cloud sync
+  supabase_flutter: ^2.5.6
+
+  # Utils
+  crypto: ^3.0.3
+  collection: ^1.18.0
+  xml: ^6.5.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - config/app_config.json
