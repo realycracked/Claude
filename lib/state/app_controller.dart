@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
+import '../models/app_settings.dart';
 import '../models/media_item.dart';
 import '../models/profile.dart';
 import '../models/source.dart';
@@ -40,6 +41,8 @@ class AppController extends ChangeNotifier {
   List<Favorite> favorites = [];
   List<WatchProgress> progress = [];
 
+  AppSettings settings = const AppSettings();
+
   /// Déverrouillage temporaire des contenus adultes pour le profil actif.
   DateTime? _adultUnlockUntil;
   bool get adultUnlocked {
@@ -52,6 +55,8 @@ class AppController extends ChangeNotifier {
 
   // ---- Démarrage ---------------------------------------------------------
   Future<void> bootstrap() async {
+    settings = local.getSettings();
+    repo.applyLanguage(settings.contentLanguage);
     profiles = local.getProfiles();
     sources = local.getSources();
 
@@ -111,13 +116,12 @@ class AppController extends ChangeNotifier {
   }
 
   Future<Profile> createProfile(String name,
-      {bool isKids = false, String avatar = 'avatar_1', String? pin}) async {
+      {bool isKids = false, String avatar = 'avatar_1'}) async {
     final p = Profile(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: name,
       avatar: avatar,
       isKids: isKids,
-      pinHash: pin != null && pin.isNotEmpty ? parental.hashPin(pin) : null,
     );
     profiles = [...profiles, p];
     await local.saveProfiles(profiles);
@@ -142,6 +146,48 @@ class AppController extends ChangeNotifier {
       await local.setActiveProfileId(null);
     }
     if (cloudEnabled && isSignedIn) unawaited(cloud.deleteProfile(p.id));
+    notifyListeners();
+  }
+
+  // ---- Réglages ----------------------------------------------------------
+  Future<void> updateSettings(AppSettings s) async {
+    final languageChanged = s.contentLanguage != settings.contentLanguage;
+    settings = s;
+    await local.saveSettings(s);
+    if (languageChanged) {
+      repo.applyLanguage(s.contentLanguage);
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearContinueWatching() async {
+    final id = activeProfile?.id;
+    if (id == null) return;
+    progress = [];
+    await local.saveProgress(id, progress);
+    notifyListeners();
+  }
+
+  // ---- Authentification cloud -------------------------------------------
+  /// true = session ouverte tout de suite ; false = confirmation email requise.
+  Future<bool> signUp(String email, String password) async {
+    final immediate = await cloud.signUp(email, password);
+    if (immediate) await _afterAuth();
+    return immediate;
+  }
+
+  Future<void> signIn(String email, String password) async {
+    await cloud.signIn(email, password);
+    await _afterAuth();
+  }
+
+  Future<void> signOut() async {
+    await cloud.signOut();
+    notifyListeners();
+  }
+
+  Future<void> _afterAuth() async {
+    await _syncFromCloud();
     notifyListeners();
   }
 

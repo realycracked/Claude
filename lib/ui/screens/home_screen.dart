@@ -88,6 +88,13 @@ class HomeScreen extends StatelessWidget {
                   onTap: (wp) => _resume(context, wp),
                 ),
               ),
+            if (c.settings.showTop10 && rows.isNotEmpty && rows.first.items.length >= 3)
+              SliverToBoxAdapter(
+                child: _Top10Row(
+                  items: rows.first.items.take(10).toList(),
+                  onTap: (item) => _openDetail(context, item),
+                ),
+              ),
             for (final row in rows)
               SliverToBoxAdapter(
                 child: ContentRowView(
@@ -182,6 +189,67 @@ class _ContinueRow extends StatelessWidget {
                   item: fake,
                   progress: wp.progress,
                   onTap: () => onTap(wp),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Top10Row extends StatelessWidget {
+  const _Top10Row({required this.items, required this.onTap});
+  final List<MediaItem> items;
+  final void Function(MediaItem) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
+          child: Text('Top 10 aujourd\'hui',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        ),
+        SizedBox(
+          height: 150,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              return GestureDetector(
+                onTap: () => onTap(items[i]),
+                child: SizedBox(
+                  width: 172,
+                  child: Stack(
+                    alignment: Alignment.bottomLeft,
+                    children: [
+                      Positioned(
+                        left: 4,
+                        bottom: -12,
+                        child: Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontSize: 110,
+                            height: 1.0,
+                            fontWeight: FontWeight.w900,
+                            foreground: Paint()
+                              ..style = PaintingStyle.stroke
+                              ..strokeWidth = 3
+                              ..color = Colors.white60,
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: PosterCard(item: items[i], width: 96),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

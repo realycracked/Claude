@@ -8,8 +8,15 @@ import '../widgets/focusable.dart';
 import 'home_shell.dart';
 
 /// Sélection de profil (façon "Qui regarde ?" de Netflix).
-class ProfilesScreen extends StatelessWidget {
+class ProfilesScreen extends StatefulWidget {
   const ProfilesScreen({super.key});
+
+  @override
+  State<ProfilesScreen> createState() => _ProfilesScreenState();
+}
+
+class _ProfilesScreenState extends State<ProfilesScreen> {
+  bool _manage = false;
 
   static const _avatarColors = [
     Color(0xFFE50914),
@@ -46,9 +53,9 @@ class ProfilesScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-                const Text(
-                  'Qui regarde ?',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                Text(
+                  _manage ? 'Gérer les profils' : 'Qui regarde ?',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 36),
                 Wrap(
@@ -60,12 +67,21 @@ class ProfilesScreen extends StatelessWidget {
                       _ProfileTile(
                         profile: p,
                         color: _colorFor(p.id),
-                        onTap: () => _onSelect(context, p),
-                        onLongPress: () => _edit(context, p),
+                        manage: _manage,
+                        onTap: () =>
+                            _manage ? _edit(context, p) : _onSelect(context, p),
                       ),
-                    _AddTile(onTap: () => _edit(context, null)),
+                    if (!_manage && c.profiles.length < 6)
+                      _AddTile(onTap: () => _edit(context, null)),
                   ],
                 ),
+                const SizedBox(height: 36),
+                if (c.profiles.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () => setState(() => _manage = !_manage),
+                    icon: Icon(_manage ? Icons.check : Icons.edit),
+                    label: Text(_manage ? 'Terminé' : 'Gérer les profils'),
+                  ),
               ],
             ),
           ),
@@ -76,10 +92,6 @@ class ProfilesScreen extends StatelessWidget {
 
   Future<void> _onSelect(BuildContext context, Profile p) async {
     final c = context.read<AppController>();
-    if (p.hasPin) {
-      final ok = await _askPin(context, p);
-      if (ok != true) return;
-    }
     await c.selectProfile(p);
     c.reloadCatalog();
     if (context.mounted) {
@@ -87,35 +99,6 @@ class ProfilesScreen extends StatelessWidget {
         MaterialPageRoute(builder: (_) => const HomeShell()),
       );
     }
-  }
-
-  Future<bool?> _askPin(BuildContext context, Profile p) {
-    final ctrl = TextEditingController();
-    final parental = context.read<AppController>().parental;
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Code de « ${p.name} »'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          obscureText: true,
-          maxLength: 6,
-          decoration: const InputDecoration(hintText: 'Code PIN'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-                ctx, parental.verifyPin(ctrl.text.trim(), p.pinHash)),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _edit(BuildContext context, Profile? p) {
@@ -131,58 +114,72 @@ class _ProfileTile extends StatelessWidget {
   const _ProfileTile({
     required this.profile,
     required this.color,
+    required this.manage,
     required this.onTap,
-    required this.onLongPress,
   });
 
   final Profile profile;
   final Color color;
+  final bool manage;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPress: onLongPress,
-      child: SizedBox(
-        width: 120,
-        child: Column(
-          children: [
-            Focusable(
-              onTap: onTap,
-              borderRadius: 14,
-              child: Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Center(
-                  child: Text(
-                    profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+    return SizedBox(
+      width: 120,
+      child: Column(
+        children: [
+          Focusable(
+            onTap: onTap,
+            borderRadius: 14,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      profile.name.isNotEmpty
+                          ? profile.name[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
+                if (manage)
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.edit, color: Colors.white, size: 30),
+                  ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              profile.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
-            ),
-            if (profile.isKids)
-              const Text('Enfant', style: TextStyle(color: Colors.white38, fontSize: 11)),
-            if (profile.hasPin)
-              const Icon(Icons.lock, size: 13, color: Colors.white38),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            profile.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Colors.white70, fontWeight: FontWeight.w600),
+          ),
+          if (profile.isKids)
+            const Text('Enfant',
+                style: TextStyle(color: Colors.white38, fontSize: 11)),
+        ],
       ),
     );
   }
@@ -231,7 +228,6 @@ class _ProfileEditor extends StatefulWidget {
 class _ProfileEditorState extends State<_ProfileEditor> {
   late final TextEditingController _name =
       TextEditingController(text: widget.profile?.name ?? '');
-  late final TextEditingController _pin = TextEditingController();
   late bool _isKids = widget.profile?.isKids ?? false;
 
   @override
@@ -256,6 +252,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
           const SizedBox(height: 16),
           TextField(
             controller: _name,
+            autofocus: true,
             decoration: const InputDecoration(hintText: 'Nom du profil'),
           ),
           const SizedBox(height: 12),
@@ -266,21 +263,10 @@ class _ProfileEditorState extends State<_ProfileEditor> {
             title: const Text('Profil enfant'),
             subtitle: const Text('Contenu limité et adapté'),
           ),
-          TextField(
-            controller: _pin,
-            keyboardType: TextInputType.number,
-            obscureText: true,
-            maxLength: 6,
-            decoration: InputDecoration(
-              hintText: editing
-                  ? 'Nouveau code PIN (laisser vide = inchangé)'
-                  : 'Code PIN (optionnel)',
-            ),
-          ),
           const SizedBox(height: 8),
           Row(
             children: [
-              if (editing)
+              if (editing && c.profiles.length > 1)
                 TextButton.icon(
                   onPressed: () async {
                     await c.deleteProfile(widget.profile!);
@@ -305,15 +291,10 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   Future<void> _save(AppController c) async {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    final pin = _pin.text.trim();
     if (widget.profile == null) {
-      await c.createProfile(name, isKids: _isKids, pin: pin.isEmpty ? null : pin);
+      await c.createProfile(name, isKids: _isKids);
     } else {
-      var p = widget.profile!.copyWith(name: name, isKids: _isKids);
-      if (pin.isNotEmpty) {
-        p = p.copyWith(pinHash: c.parental.hashPin(pin));
-      }
-      await c.updateProfile(p);
+      await c.updateProfile(widget.profile!.copyWith(name: name, isKids: _isKids));
     }
     if (mounted) Navigator.pop(context);
   }

@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
-
 import '../config/app_config.dart';
 import '../models/media_item.dart';
 
@@ -57,11 +54,4 @@ class ParentalService {
     if (unlocked) return items;
     return items.where((i) => !isAdult(i)).toList();
   }
-
-  // ---- PIN (contrôle parental des profils) ------------------------------
-  String hashPin(String pin) =>
-      sha256.convert(utf8.encode('nova.pin.$pin')).toString();
-
-  bool verifyPin(String pin, String? hash) =>
-      hash != null && hash.isNotEmpty && hashPin(pin) == hash;
 }

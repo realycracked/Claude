@@ -3,9 +3,9 @@ import '../config/app_config.dart';
 
 /// Thème sombre façon Netflix : fond quasi noir, accent rouge, typographie nette.
 class AppTheme {
-  static ThemeData build() {
+  static ThemeData build({Color? accentOverride}) {
     final cfg = AppConfig.instance;
-    final accent = cfg.accentColor;
+    final accent = accentOverride ?? cfg.accentColor;
     final bg = cfg.backgroundColor;
     final surface = cfg.surfaceColor;
 

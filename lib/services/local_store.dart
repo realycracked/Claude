@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/app_settings.dart';
 import '../models/profile.dart';
 import '../models/source.dart';
 import '../models/watch_progress.dart';
@@ -22,6 +23,21 @@ class LocalStore {
   static const _kFavorites = 'favorites'; // par profil : favorites:<profileId>
   static const _kProgress = 'progress'; // par profil : progress:<profileId>
   static const _kAdultUnlockUntil = 'adult_unlock_until'; // par profil
+  static const _kSettings = 'app_settings';
+
+  // ---- Réglages ----------------------------------------------------------
+  AppSettings getSettings() {
+    final raw = _prefs.getString(_kSettings);
+    if (raw == null) return const AppSettings();
+    try {
+      return AppSettings.fromJson(json.decode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return const AppSettings();
+    }
+  }
+
+  Future<void> saveSettings(AppSettings s) async =>
+      _prefs.setString(_kSettings, json.encode(s.toJson()));
 
   // ---- Profils -----------------------------------------------------------
   List<Profile> getProfiles() => _list(_kProfiles).map(Profile.fromJson).toList();

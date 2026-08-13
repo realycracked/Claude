@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../config/app_config.dart';
 import '../../state/app_controller.dart';
+import 'auth_screen.dart';
 import 'home_shell.dart';
 import 'profiles_screen.dart';
 
@@ -31,7 +32,10 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 900));
     if (!mounted) return;
     final c = context.read<AppController>();
-    if (c.activeProfile == null) {
+    // Connexion obligatoire quand le cloud est activé.
+    if (c.cloudEnabled && !c.isSignedIn) {
+      _go(const AuthScreen());
+    } else if (c.activeProfile == null) {
       _go(const ProfilesScreen());
     } else {
       c.reloadCatalog();

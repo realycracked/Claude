@@ -37,12 +37,19 @@ class SupabaseService {
       enabled ? _client.auth.onAuthStateChange : const Stream.empty();
 
   // ---- Auth --------------------------------------------------------------
-  Future<void> signUp(String email, String password) async {
-    await _client.auth.signUp(email: email, password: password);
+  /// Crée un compte. Retourne true si une session est ouverte immédiatement
+  /// (confirmation email désactivée), false s'il faut confirmer par email.
+  Future<bool> signUp(String email, String password) async {
+    final res = await _client.auth.signUp(email: email, password: password);
+    return res.session != null;
   }
 
   Future<void> signIn(String email, String password) async {
     await _client.auth.signInWithPassword(email: email, password: password);
+  }
+
+  Future<void> resetPassword(String email) async {
+    if (enabled) await _client.auth.resetPasswordForEmail(email);
   }
 
   Future<void> signOut() async {

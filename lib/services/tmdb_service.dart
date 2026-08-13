@@ -32,8 +32,12 @@ class TmdbService {
   static const _base = 'https://api.themoviedb.org/3';
   final _cache = <String, TmdbInfo>{};
 
+  /// Langue choisie dans les réglages (prioritaire sur la config).
+  String? languageOverride;
+
   AppConfig get _cfg => AppConfig.instance;
   bool get enabled => _cfg.tmdbEnabled;
+  String get _language => languageOverride ?? _cfg.tmdbLanguage;
 
   String imageUrl(String path, {bool backdrop = false}) {
     if (path.isEmpty) return '';
@@ -45,7 +49,7 @@ class TmdbService {
   Uri _uri(String path, [Map<String, String>? params]) {
     return Uri.parse('$_base$path').replace(queryParameters: {
       'api_key': _cfg.tmdbApiKey,
-      'language': _cfg.tmdbLanguage,
+      'language': _language,
       ...?params,
     });
   }

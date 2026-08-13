@@ -8,7 +8,7 @@ avec une interface soignée inspirée de Netflix.
 - **Interface façon Netflix** : bannière d'accueil, carrousels, fiches détail, thème sombre + accent rouge.
 - **Téléphone & TV** : un seul code, navigation tactile *et* à la télécommande (focus visuel sur Android TV).
 - **Sources** : **Xtream Codes API** *et* **playlists M3U / M3U8**.
-- **Plusieurs profils** (façon Netflix) avec profils enfants et code PIN.
+- **Plusieurs profils** (façon Netflix).
 - **Sync cloud Supabase** (optionnel) : profils, sources, favoris et progression synchronisés entre appareils.
 - **Reprendre à regarder**, **favoris**, **recherche globale**.
 - **Enrichissement TMDB** : affiches, résumés, notes, genres.

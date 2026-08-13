@@ -55,6 +55,9 @@ class ContentRepository {
 
   AppConfig get _cfg => AppConfig.instance;
 
+  /// Applique la langue choisie dans les réglages (affiches/résumés TMDB).
+  void applyLanguage(String language) => tmdb.languageOverride = language;
+
   /// Charge (ou recharge) tout le catalogue à partir des sources actives.
   Future<void> loadAll(List<IptvSource> sources, {bool force = false}) async {
     if (_loaded && !force) return;

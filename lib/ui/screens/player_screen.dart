@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_config.dart';
+import '../../models/app_settings.dart';
 import '../../models/media_item.dart';
 import '../../models/watch_progress.dart';
 import '../../state/app_controller.dart';
@@ -33,12 +34,21 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen> {
   late final Player _player;
   late final VideoController _controller;
+  late AppSettings _settings;
   Timer? _saveTimer;
   bool _resumed = false;
+
+  // État mutable (change lors de l'enchaînement d'épisodes).
+  late String _title = widget.title;
+  late StreamVersion _version = widget.version;
+  Episode? _episode;
 
   @override
   void initState() {
     super.initState();
+    _episode = widget.episode;
+    _settings = context.read<AppController>().settings;
+
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -49,56 +59,90 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _controller = VideoController(_player);
     _open();
     _startProgressTracking();
+    _listenCompletion();
   }
 
   Future<void> _open() async {
-    final ua = AppConfig.instance.playerUserAgent;
     final headers = <String, String>{
-      'User-Agent': ua,
-      ...widget.version.headers,
+      'User-Agent': AppConfig.instance.playerUserAgent,
+      ..._version.headers,
     };
-    await _player.open(
-      Media(widget.version.url, httpHeaders: headers),
-    );
+    await _player.open(Media(_version.url, httpHeaders: headers));
+    if (_settings.playbackSpeed != 1.0) {
+      await _player.setRate(_settings.playbackSpeed);
+    }
   }
 
   String get _progressId =>
-      widget.episode != null ? '${widget.item.id}:${widget.episode!.id}' : widget.item.id;
+      _episode != null ? '${widget.item.id}:${_episode!.id}' : widget.item.id;
 
   void _startProgressTracking() {
-    // Reprise à la position sauvegardée.
     _player.stream.duration.listen((d) async {
       if (_resumed || d.inSeconds <= 0 || widget.item.isLive) return;
       _resumed = true;
+      if (!_settings.rememberPosition) return;
       final c = context.read<AppController>();
       final wp = c.progressFor(_progressId);
       if (wp != null && wp.inProgress) {
         await _player.seek(Duration(seconds: wp.positionSecs));
       }
     });
+    _saveTimer =
+        Timer.periodic(const Duration(seconds: 10), (_) => _saveProgress());
+  }
 
-    // Sauvegarde périodique de la progression.
-    _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) => _saveProgress());
+  void _listenCompletion() {
+    _player.stream.completed.listen((done) {
+      if (done && _settings.autoplayNext) _playNextEpisode();
+    });
+  }
+
+  void _playNextEpisode() {
+    final ep = _episode;
+    if (ep == null) return;
+    final next = _findNextEpisode(ep);
+    if (next == null || next.versions.isEmpty) return;
+    setState(() {
+      _episode = next;
+      _version = next.versions.first;
+      _title = '${widget.item.title} · ${next.label}';
+      _resumed = true; // pas de reprise sur un nouvel épisode
+    });
+    _open();
+  }
+
+  Episode? _findNextEpisode(Episode current) {
+    final seasons = widget.item.seasons;
+    final sameSeason = seasons[current.season] ?? const [];
+    final idx = sameSeason.indexWhere((e) => e.id == current.id);
+    if (idx >= 0 && idx + 1 < sameSeason.length) return sameSeason[idx + 1];
+    // Sinon, premier épisode de la saison suivante.
+    final nums = widget.item.seasonNumbers;
+    final si = nums.indexOf(current.season);
+    if (si >= 0 && si + 1 < nums.length) {
+      final nextSeason = seasons[nums[si + 1]] ?? const [];
+      if (nextSeason.isNotEmpty) return nextSeason.first;
+    }
+    return null;
   }
 
   void _saveProgress() {
-    if (widget.item.isLive) return;
+    if (widget.item.isLive || !_settings.rememberPosition) return;
     final pos = _player.state.position.inSeconds;
     final dur = _player.state.duration.inSeconds;
     if (dur <= 0 || pos <= 0) return;
-    final c = context.read<AppController>();
-    c.saveProgress(WatchProgress(
-      itemId: _progressId,
-      itemType: widget.episode != null ? 'episode' : 'movie',
-      title: widget.title,
-      seriesId: widget.episode != null ? widget.item.id : null,
-      season: widget.episode?.season,
-      episode: widget.episode?.episode,
-      poster: widget.item.poster,
-      positionSecs: pos,
-      durationSecs: dur,
-      finished: pos / dur > 0.95,
-    ));
+    context.read<AppController>().saveProgress(WatchProgress(
+          itemId: _progressId,
+          itemType: _episode != null ? 'episode' : 'movie',
+          title: _title,
+          seriesId: _episode != null ? widget.item.id : null,
+          season: _episode?.season,
+          episode: _episode?.episode,
+          poster: widget.item.poster,
+          positionSecs: pos,
+          durationSecs: dur,
+          finished: pos / dur > 0.95,
+        ));
   }
 
   @override
