@@ -109,6 +109,9 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
   }
 }
 
+String _hm(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
 class _ChannelTile extends StatelessWidget {
   const _ChannelTile({
     required this.channel,
@@ -165,6 +168,31 @@ class _ChannelTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     if (now != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text('DIRECT',
+                                style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                    color: Colors.white)),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${_hm(now!.start)} - ${_hm(now!.stop)}',
+                            style: const TextStyle(
+                                color: Colors.white38, fontSize: 10.5),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 3),
                       Text(
                         now!.title,
