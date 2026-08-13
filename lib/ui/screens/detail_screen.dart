@@ -144,28 +144,36 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Widget _metaRow(MediaItem item) {
     final parts = <Widget>[];
-    if (item.year.isNotEmpty) parts.add(_chipText(item.year));
     if (item.rating > 0) {
-      parts.add(Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star, size: 15, color: Colors.amber),
-          const SizedBox(width: 3),
-          Text(item.rating.toStringAsFixed(1),
-              style: const TextStyle(color: Colors.white70)),
-        ],
+      final match = (item.rating * 10).clamp(0, 100).round();
+      parts.add(Text(
+        '$match % pour vous',
+        style: const TextStyle(
+            color: Color(0xFF46D369), fontWeight: FontWeight.w700, fontSize: 13),
       ));
     }
-    parts.add(_chipText(item.isSeries
-        ? 'Série'
-        : item.isLive
-            ? 'Direct'
-            : 'Film'));
-    return Wrap(spacing: 12, runSpacing: 6, children: parts);
+    if (item.year.isNotEmpty) parts.add(_chipText(item.year));
+    parts.add(_badge('HD'));
+    if (item.isSeries && item.seasonNumbers.isNotEmpty) {
+      parts.add(_chipText('${item.seasonNumbers.length} saison'
+          '${item.seasonNumbers.length > 1 ? 's' : ''}'));
+    }
+    return Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: parts);
   }
 
   Widget _chipText(String s) => Text(s,
       style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600));
+
+  Widget _badge(String s) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white38),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Text(s,
+            style: const TextStyle(
+                color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700)),
+      );
 
   Widget _actions(BuildContext context, MediaItem item, bool isFav) {
     return Row(

@@ -143,7 +143,7 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.speed,
             label: 'Vitesse de lecture par défaut',
             value: s.playbackSpeed,
-            options: const {
+            options: <double, String>{
               0.5: '0.5×',
               0.75: '0.75×',
               1.0: 'Normale (1×)',
