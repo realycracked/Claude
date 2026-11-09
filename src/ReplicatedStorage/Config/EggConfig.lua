@@ -12,6 +12,9 @@
 
 local EggConfig = {}
 
+-- Apparence 3D des œufs : "Smooth" (œuf lisse et arrondi) ou "Blocks" (couches de blocs, comme la photo)
+EggConfig.Style = "Smooth"
+
 EggConfig.Rarities = {
 	{
 		Id = "Common",

@@ -61,31 +61,73 @@ function EggBuilder.Build(rarityId, variantId, scale)
 	hitbox.CFrame = CFrame.new()
 	model.PrimaryPart = hitbox
 
-	-- Couches
-	local layerCenters = {}
-	local y = -height / 2
-	for index, width in ipairs(PROFILE) do
-		local layerColor = bodyColor
-		if index % 2 == 0 then
-			layerColor = bodyColor:Lerp(Color3.new(0, 0, 0), 0.07)
-		end
-		local layer = newPart("Layer" .. index, Vector3.new(width * scale, LAYER_HEIGHT * scale, width * scale), layerColor, material, model)
-		local centerY = y + LAYER_HEIGHT * scale / 2
-		layer.CFrame = CFrame.new(0, centerY, 0)
-		layerCenters[index] = centerY
-		y = y + LAYER_HEIGHT * scale
-	end
-
 	-- Taches (motifs) : positions identiques pour une même rareté/variante
 	local seed = rarity.Index * 100 + variant.Index
 	local rng = Random.new(seed)
-	for _ = 1, rarity.Spots do
-		local layerIndex = rng:NextInteger(2, #PROFILE - 1)
-		local angle = rng:NextNumber(0, math.pi * 2)
-		local radius = PROFILE[layerIndex] * scale / 2
-		local spotSize = rng:NextNumber(0.25, 0.4) * scale
-		local spot = newPart("Spot", Vector3.new(spotSize, spotSize, spotSize), rarity.SpotColor, rarity.Glow and Enum.Material.Neon or material, model)
-		spot.CFrame = CFrame.new(math.cos(angle) * radius, layerCenters[layerIndex], math.sin(angle) * radius) * CFrame.Angles(0, -angle, 0)
+	local spotMaterial = rarity.Glow and Enum.Material.Neon or material
+
+	if EggConfig.Style == "Blocks" then
+		-- Style géométrique (comme la photo de référence) : couches de blocs empilés
+		local layerCenters = {}
+		local y = -height / 2
+		for index, width in ipairs(PROFILE) do
+			local layerColor = bodyColor
+			if index % 2 == 0 then
+				layerColor = bodyColor:Lerp(Color3.new(0, 0, 0), 0.07)
+			end
+			local layer = newPart("Layer" .. index, Vector3.new(width * scale, LAYER_HEIGHT * scale, width * scale), layerColor, material, model)
+			local centerY = y + LAYER_HEIGHT * scale / 2
+			layer.CFrame = CFrame.new(0, centerY, 0)
+			layerCenters[index] = centerY
+			y = y + LAYER_HEIGHT * scale
+		end
+		for _ = 1, rarity.Spots do
+			local layerIndex = rng:NextInteger(2, #PROFILE - 1)
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local radius = PROFILE[layerIndex] * scale / 2
+			local spotSize = rng:NextNumber(0.25, 0.4) * scale
+			local spot = newPart("Spot", Vector3.new(spotSize, spotSize, spotSize), rarity.SpotColor, spotMaterial, model)
+			spot.CFrame = CFrame.new(math.cos(angle) * radius, layerCenters[layerIndex], math.sin(angle) * radius) * CFrame.Angles(0, -angle, 0)
+		end
+	else
+		-- Style lisse : vrai œuf = sphère large en bas + ellipsoïde plus fin en haut
+		local function shell(name, size, offsetY)
+			local part = newPart(name, size, bodyColor, material, model)
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.Sphere
+			mesh.Parent = part
+			part.CFrame = CFrame.new(0, offsetY, 0)
+			return part
+		end
+		local lowerRadius = 1.15 * scale
+		local lowerCenter = -height / 2 + lowerRadius
+		local upperCenter = -height / 2 + 1.65 * scale
+		shell("Shell", Vector3.new(2.3 * scale, 2.3 * scale, 2.3 * scale), lowerCenter)
+		shell("ShellTop", Vector3.new(1.9 * scale, 2.4 * scale, 1.9 * scale), upperCenter)
+
+		-- Reflet brillant
+		local gloss = newPart("Gloss", Vector3.new(0.5 * scale, 0.8 * scale, 0.3 * scale), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, model)
+		local glossMesh = Instance.new("SpecialMesh")
+		glossMesh.MeshType = Enum.MeshType.Sphere
+		glossMesh.Parent = gloss
+		gloss.Transparency = 0.45
+		gloss.CFrame = CFrame.new(-0.55 * scale, upperCenter + 0.55 * scale, -0.7 * scale) * CFrame.Angles(0, math.rad(40), math.rad(20))
+
+		-- Taches posées sur la coquille (petites boules)
+		for _ = 1, rarity.Spots do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local spotSize = rng:NextNumber(0.28, 0.42) * scale
+			local spot = newPart("Spot", Vector3.new(spotSize, spotSize, spotSize), rarity.SpotColor, spotMaterial, model)
+			spot.Shape = Enum.PartType.Ball
+			if rng:NextNumber() < 0.6 then
+				local elevation = rng:NextNumber(-0.5, 0.6)
+				local r = lowerRadius * 0.97
+				spot.CFrame = CFrame.new(math.cos(elevation) * math.cos(angle) * r, lowerCenter + math.sin(elevation) * r, math.cos(elevation) * math.sin(angle) * r)
+			else
+				local elevation = rng:NextNumber(0.1, 1.0)
+				spot.CFrame = CFrame.new(math.cos(elevation) * math.cos(angle) * 0.92 * scale, upperCenter + math.sin(elevation) * 1.17 * scale, math.cos(elevation) * math.sin(angle) * 0.92 * scale)
+			end
+		end
 	end
 
 	-- Lumière
