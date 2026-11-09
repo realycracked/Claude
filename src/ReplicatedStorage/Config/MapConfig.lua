@@ -19,7 +19,10 @@ MapConfig.PathColor = Color3.fromRGB(222, 200, 160)
 
 -- Styles d'arbres utilisés sur la map (mélange possible) :
 --  "A" boules étagées · "B" low poly facetté · "C" sapin à étages · "D" parasol/acacia · "E" palmier
-MapConfig.TreeStyles = { "A", "B", "D" }
+MapConfig.TreeStyles = { "A", "B" }
+
+-- Tronc : "Smooth" (lisse effilé) · "Bark" (effilé, écorce striée, nœud, racines) · "Twisted" (tordu + écorce)
+MapConfig.TrunkStyle = "Bark"
 
 -- Quantités de décor
 MapConfig.Decor = {

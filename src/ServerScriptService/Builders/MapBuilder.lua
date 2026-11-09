@@ -158,53 +158,140 @@ end
 -- Arbres : 5 styles
 ---------------------------------------------------------------------------
 local LEAF_PALETTES = {
-	{ Color3.fromRGB(52, 150, 68), Color3.fromRGB(70, 180, 82), Color3.fromRGB(96, 208, 104) },
-	{ Color3.fromRGB(62, 170, 92), Color3.fromRGB(88, 200, 110), Color3.fromRGB(120, 225, 130) },
-	{ Color3.fromRGB(46, 140, 80), Color3.fromRGB(60, 165, 90), Color3.fromRGB(80, 190, 100) },
+	{ Color3.fromRGB(52, 150, 68), Color3.fromRGB(70, 180, 82), Color3.fromRGB(96, 208, 104) }, -- vert classique
+	{ Color3.fromRGB(62, 170, 92), Color3.fromRGB(88, 200, 110), Color3.fromRGB(120, 225, 130) }, -- vert clair
+	{ Color3.fromRGB(46, 140, 80), Color3.fromRGB(60, 165, 90), Color3.fromRGB(80, 190, 100) }, -- vert profond
+	{ Color3.fromRGB(150, 200, 70), Color3.fromRGB(175, 220, 85), Color3.fromRGB(200, 235, 110) }, -- vert citron
+	{ Color3.fromRGB(230, 140, 60), Color3.fromRGB(245, 170, 80), Color3.fromRGB(255, 200, 110) }, -- automne
 	{ Color3.fromRGB(230, 120, 150), Color3.fromRGB(245, 150, 180), Color3.fromRGB(255, 185, 205) }, -- cerisier
 }
 
+-- Palettes vertes surtout, avec quelques arbres colorés (automne, cerisier)
 local function pickPalette(rng)
-	return LEAF_PALETTES[rng:NextNumber() < 0.12 and 4 or rng:NextInteger(1, 3)]
+	local roll = rng:NextNumber()
+	if roll < 0.08 then
+		return LEAF_PALETTES[6]
+	elseif roll < 0.18 then
+		return LEAF_PALETTES[5]
+	end
+	return LEAF_PALETTES[rng:NextInteger(1, 4)]
 end
 
--- A : boules étagées
+local BARK_DARK = Color3.fromRGB(82, 52, 28)
+
+-- Tronc travaillé : effilé en 3 segments (droit ou tordu), écorce striée, nœud, racines effilées.
+-- Retourne le sommet du tronc.
+local function buildTrunk(model, position, rng, scale, yaw, height, style)
+	style = style or MapConfig.TrunkStyle
+	local bark = Color3.fromRGB(110 + rng:NextInteger(-12, 12), 72 + rng:NextInteger(-8, 8), 40)
+	local segments = 3
+	local segmentHeight = height / segments
+	local point = position
+	local tilt = 0
+	local facing = CFrame.Angles(0, yaw, 0)
+
+	for i = 1, segments do
+		if style == "Twisted" then
+			tilt = tilt + rng:NextNumber(-0.14, 0.14)
+		end
+		local diameter = (2.3 - (i - 0.5) * 0.45) * scale
+		local step = facing * Vector3.new(math.sin(tilt) * segmentHeight, math.cos(tilt) * segmentHeight, 0)
+		local mid = point + step / 2
+		local segment = newPart("Trunk", Vector3.new(segmentHeight + 0.25 * scale, diameter, diameter), CFrame.lookAt(mid, point + step) * CFrame.Angles(0, math.rad(90), 0), bark, Enum.Material.SmoothPlastic, model)
+		segment.Shape = Enum.PartType.Cylinder
+
+		-- Stries d'écorce (fines lattes plus foncées collées au tronc)
+		if style ~= "Smooth" then
+			for s = 1, 3 do
+				local angle = yaw + s * 2.1 + i * 0.7
+				local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+				local ridge = newPart("Bark", Vector3.new(0.16 * scale, segmentHeight * 0.75, 0.42 * scale), CFrame.new(mid + radial * (diameter / 2 * 0.92)) * CFrame.Angles(0, -angle, 0), BARK_DARK, Enum.Material.SmoothPlastic, model)
+				ridge.CanCollide = false
+			end
+		end
+		point = point + step
+	end
+
+	-- Nœud dans le bois
+	if style ~= "Smooth" then
+		local angle = yaw + 1.2
+		newEllipsoid("Knot", Vector3.new(0.3 * scale, 0.55 * scale, 0.55 * scale), CFrame.new(position + Vector3.new(math.cos(angle) * 0.95 * scale, height * 0.42, math.sin(angle) * 0.95 * scale)) * CFrame.Angles(0, -angle, 0), BARK_DARK, model)
+	end
+
+	-- Racines effilées (gros bloc incliné + petit bloc au bout)
+	local rootCount = rng:NextInteger(3, 4)
+	for r = 1, rootCount do
+		local angle = yaw + r * (math.pi * 2 / rootCount) + rng:NextNumber(-0.3, 0.3)
+		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local rotation = CFrame.Angles(0, -angle + math.rad(90), 0)
+		local big = newPart("Root", Vector3.new(0.8, 0.8, 2.0) * scale, CFrame.new(position + radial * 1.5 * scale + Vector3.new(0, 0.35 * scale, 0)) * rotation * CFrame.Angles(math.rad(-18), 0, 0), bark, Enum.Material.SmoothPlastic, model)
+		big.CanCollide = false
+		local small = newPart("Root", Vector3.new(0.45, 0.4, 1.3) * scale, CFrame.new(position + radial * 2.9 * scale + Vector3.new(0, 0.15 * scale, 0)) * rotation * CFrame.Angles(math.rad(-8), 0, 0), bark, Enum.Material.SmoothPlastic, model)
+		small.CanCollide = false
+	end
+	return point, bark
+end
+
+-- A : boules étagées (variantes : ronde, haute, large)
 local function treeA(model, position, rng, scale, yaw)
-	local lowerH, upperH = 4.2 * scale, 3.4 * scale
-	newColumn("Trunk", lowerH, 2.0 * scale, position + Vector3.new(0, lowerH / 2, 0), BARK, model)
-	newColumn("TrunkTop", upperH, 1.4 * scale, position + Vector3.new(0, lowerH + upperH / 2 - 0.2, 0), BARK, model)
-	for i = 1, 3 do
-		local angle = yaw + i * (math.pi * 2 / 3)
-		local root = newPart("Root", Vector3.new(0.9, 0.7, 2.2) * scale, CFrame.new(position + Vector3.new(math.cos(angle) * 1.3 * scale, 0.3 * scale, math.sin(angle) * 1.3 * scale)) * CFrame.Angles(0, -angle + math.rad(90), 0) * CFrame.Angles(math.rad(-15), 0, 0), BARK, Enum.Material.SmoothPlastic, model)
-		root.CanCollide = false
-	end
+	local variant = rng:NextInteger(1, 3) -- 1 ronde, 2 haute, 3 large
+	local trunkHeight = (variant == 2 and 9 or 7.4) * scale
+	local top, bark = buildTrunk(model, position, rng, scale, yaw, trunkHeight)
 	local palette = pickPalette(rng)
-	local crownY = lowerH + upperH + 1.2 * scale
-	newBall("Leaves", 7.5 * scale, position + Vector3.new(0, crownY, 0), palette[1], model)
-	local ringCount = rng:NextInteger(4, 5)
-	for i = 1, ringCount do
-		local angle = yaw + i * (math.pi * 2 / ringCount)
-		newBall("Leaves", rng:NextNumber(4.2, 5.4) * scale, position + Vector3.new(math.cos(angle) * 2.6 * scale, crownY - 0.9 * scale + rng:NextNumber(-0.4, 0.6) * scale, math.sin(angle) * 2.6 * scale), palette[(i % 2) + 1], model)
+	local crownY = top.Y + 1.0 * scale
+
+	-- Une ou deux branches avec une petite touffe au bout
+	for b = 1, rng:NextInteger(1, 2) do
+		local angle = yaw + b * 2.4 + rng:NextNumber(0, 0.8)
+		local endPoint = top + Vector3.new(math.cos(angle) * 3.2 * scale, -0.6 * scale, math.sin(angle) * 3.2 * scale)
+		newBeam("Branch", top - Vector3.new(0, 0.8 * scale, 0), endPoint, 0.55 * scale, bark, model)
+		newBall("Leaves", 2.4 * scale, endPoint + Vector3.new(0, 0.6 * scale, 0), palette[3], model)
 	end
-	newBall("Leaves", 4.4 * scale, position + Vector3.new(0.4 * scale, crownY + 2.8 * scale, -0.3 * scale), palette[3], model)
+
+	if variant == 1 then
+		newBall("Leaves", 7.5 * scale, Vector3.new(top.X, crownY, top.Z), palette[1], model)
+		local ringCount = rng:NextInteger(4, 6)
+		for i = 1, ringCount do
+			local angle = yaw + i * (math.pi * 2 / ringCount)
+			newBall("Leaves", rng:NextNumber(4.2, 5.4) * scale, Vector3.new(top.X + math.cos(angle) * 2.6 * scale, crownY - 0.9 * scale + rng:NextNumber(-0.4, 0.6) * scale, top.Z + math.sin(angle) * 2.6 * scale), palette[(i % 2) + 1], model)
+		end
+		newBall("Leaves", 4.4 * scale, Vector3.new(top.X + 0.4 * scale, crownY + 2.8 * scale, top.Z - 0.3 * scale), palette[3], model)
+	elseif variant == 2 then
+		-- Haute : boules empilées de plus en plus petites
+		local sizes = { 6.4, 5.4, 4.4, 3.2 }
+		local y = crownY - 0.5 * scale
+		for i, d in ipairs(sizes) do
+			local offset = Vector3.new(rng:NextNumber(-0.6, 0.6), 0, rng:NextNumber(-0.6, 0.6)) * scale
+			newBall("Leaves", d * scale, Vector3.new(top.X, y, top.Z) + offset, palette[((i - 1) % 3) + 1], model)
+			y = y + d * scale * 0.55
+		end
+	else
+		-- Large : couronne aplatie de grosses boules
+		local ringCount = rng:NextInteger(5, 7)
+		for i = 1, ringCount do
+			local angle = yaw + i * (math.pi * 2 / ringCount)
+			newBall("Leaves", rng:NextNumber(4.8, 5.8) * scale, Vector3.new(top.X + math.cos(angle) * 3.6 * scale, crownY - 0.6 * scale + rng:NextNumber(-0.3, 0.3) * scale, top.Z + math.sin(angle) * 3.6 * scale), palette[(i % 2) + 1], model)
+		end
+		newBall("Leaves", 6.6 * scale, Vector3.new(top.X, crownY + 0.9 * scale, top.Z), palette[3], model)
+	end
 end
 
--- B : low poly facetté (cubes tournés en cristaux de feuillage)
+-- B : low poly facetté (cubes tournés en cristaux de feuillage, agencement aléatoire)
 local function treeB(model, position, rng, scale, yaw)
-	local trunkH = 7 * scale
-	newColumn("Trunk", trunkH, 1.6 * scale, position + Vector3.new(0, trunkH / 2, 0), BARK, model)
+	local top, _ = buildTrunk(model, position, rng, scale, yaw, 7.6 * scale)
 	local palette = pickPalette(rng)
-	local crownY = 9.5 * scale
-	local cubes = {
-		{ 6.5, 0, 0, 0, palette[1] },
-		{ 4.6, 2.6, -1.4, 1.2, palette[2] },
-		{ 4.4, -2.8, -1.0, -1.0, palette[2] },
-		{ 3.6, 0.4, 3.4, -0.6, palette[3] },
-		{ 3.2, -0.8, -0.6, 3.0, palette[3] },
-	}
-	for _, c in ipairs(cubes) do
-		local size = c[1] * scale
-		local cube = newPart("Leaves", Vector3.new(size, size, size), CFrame.new(position + Vector3.new(c[2] * scale, crownY + c[3] * scale, c[4] * scale)) * CFrame.Angles(rng:NextNumber(0.2, 0.9), yaw + rng:NextNumber(0, 1), rng:NextNumber(0.3, 0.9)), c[5], Enum.Material.SmoothPlastic, model)
+	local crownY = top.Y + 2.0 * scale
+	local mainSize = rng:NextNumber(5.8, 7.2) * scale
+	local main = newPart("Leaves", Vector3.new(mainSize, mainSize, mainSize), CFrame.new(top.X, crownY, top.Z) * CFrame.Angles(rng:NextNumber(0.3, 0.8), yaw, rng:NextNumber(0.3, 0.8)), palette[1], Enum.Material.SmoothPlastic, model)
+	main.CanCollide = false
+	local satellites = rng:NextInteger(3, 6)
+	for i = 1, satellites do
+		local angle = yaw + i * (math.pi * 2 / satellites) + rng:NextNumber(-0.4, 0.4)
+		local elevation = rng:NextNumber(-0.5, 0.9)
+		local distance = rng:NextNumber(2.4, 3.4) * scale
+		local size = rng:NextNumber(3.0, 4.8) * scale
+		local offset = Vector3.new(math.cos(elevation) * math.cos(angle) * distance, math.sin(elevation) * distance, math.cos(elevation) * math.sin(angle) * distance)
+		local cube = newPart("Leaves", Vector3.new(size, size, size), CFrame.new(Vector3.new(top.X, crownY, top.Z) + offset) * CFrame.Angles(rng:NextNumber(0.2, 0.9), rng:NextNumber(0, 3), rng:NextNumber(0.3, 0.9)), palette[(i % 2) + 2], Enum.Material.SmoothPlastic, model)
 		cube.CanCollide = false
 	end
 end

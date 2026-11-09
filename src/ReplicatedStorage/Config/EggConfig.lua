@@ -12,7 +12,11 @@
 
 local EggConfig = {}
 
--- Apparence 3D des œufs : "Smooth" (œuf lisse et arrondi) ou "Blocks" (couches de blocs, comme la photo)
+-- Apparence 3D des œufs :
+--  "Smooth"  : œuf lisse et arrondi avec reflet
+--  "TwoTone" : œuf lisse en deux couleurs avec un anneau à la jonction
+--  "Faceted" : couches facettées tournées (effet gemme low poly)
+--  "Blocks"  : couches de blocs empilés (comme la photo de référence)
 EggConfig.Style = "Smooth"
 
 EggConfig.Rarities = {

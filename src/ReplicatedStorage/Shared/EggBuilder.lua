@@ -149,14 +149,40 @@ function EggBuilder.Build(rarityId, variantId, scale)
 			local spot = newPart("Spot", Vector3.new(spotSize, spotSize, spotSize), rarity.SpotColor, spotMaterial, model)
 			spot.CFrame = CFrame.new(math.cos(angle) * radius, layerCenters[layerIndex], math.sin(angle) * radius) * CFrame.Angles(0, -angle, 0)
 		end
+	elseif EggConfig.Style == "Faceted" then
+		-- Style facetté : couches de blocs tournées alternativement de 45° (silhouette octogonale, effet gemme)
+		local y = -height / 2
+		for index, width in ipairs(PROFILE) do
+			local w = width * 0.95 * scale
+			local layerColor = index % 2 == 0 and bodyColor:Lerp(Color3.new(1, 1, 1), 0.08) or bodyColor
+			local layer = newPart("Layer" .. index, Vector3.new(w, LAYER_HEIGHT * scale * 1.15, w), layerColor, material, model)
+			layer.CFrame = CFrame.new(0, y + LAYER_HEIGHT * scale / 2, 0) * CFrame.Angles(0, (index % 2) * math.rad(45), 0)
+			y = y + LAYER_HEIGHT * scale
+		end
+		for _ = 1, rarity.Spots do
+			local spotSize = rng:NextNumber(0.22, 0.32) * scale
+			local spot = newPart("Spot", Vector3.new(spotSize, spotSize, spotSize), rarity.SpotColor, spotMaterial, model)
+			spot.CFrame = CFrame.new(lowerSurface(rng:NextNumber(0, math.pi * 2), rng:NextNumber(-0.4, 0.8), 0.92)) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 1), 0)
+		end
 	else
-		-- Style lisse
+		-- Style lisse ("Smooth") ou deux tons ("TwoTone")
+		local topColor = bodyColor
+		if EggConfig.Style == "TwoTone" then
+			topColor = bodyColor:Lerp(rarity.SpotColor, 0.55)
+		end
 		local lower = newPart("Shell", Vector3.new(2.3 * scale, 2.3 * scale, 2.3 * scale), bodyColor, material, model)
 		sphereMesh(lower)
 		lower.CFrame = CFrame.new(0, lowerCenter, 0)
-		local upper = newPart("ShellTop", Vector3.new(1.9 * scale, 2.4 * scale, 1.9 * scale), bodyColor, material, model)
+		local upper = newPart("ShellTop", Vector3.new(1.9 * scale, 2.4 * scale, 1.9 * scale), topColor, material, model)
 		sphereMesh(upper)
 		upper.CFrame = CFrame.new(0, upperCenter, 0)
+		if EggConfig.Style == "TwoTone" then
+			-- Jonction : anneau métallique sombre entre les deux tons
+			local seamY = upperCenter - 0.2 * scale
+			local seam = newPart("Seam", Vector3.new(0.12 * scale, 2.1 * scale, 2.1 * scale), Color3.fromRGB(60, 60, 70), Enum.Material.Metal, model)
+			seam.Shape = Enum.PartType.Cylinder
+			seam.CFrame = CFrame.new(0, seamY, 0) * CFrame.Angles(0, 0, math.rad(90))
+		end
 
 		local gloss = newPart("Gloss", Vector3.new(0.5 * scale, 0.8 * scale, 0.3 * scale), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, model)
 		sphereMesh(gloss)
