@@ -106,6 +106,24 @@ SlimeConfig.List = {
 	},
 }
 
+-- Apparence propre à chaque catégorie : bien plus que la taille et la couleur.
+--  Eyes : nombre d'yeux · Brows : sourcils en colère · Blush : joues roses · Leaf : pousse sur la tête
+--  Spots : taches · Crystals : cristaux de glace · Horns : cornes · Spikes : pointes · Cracks : fissures lumineuses
+--  Armor : plaques dorées · Crown : couronne · Particles : "Frost" / "Shadow" / "Fire" / "Embers"
+--  Light : couleur de la lumière émise · Aura : couleur de l'aura · EyeGlow : pupilles lumineuses
+SlimeConfig.Looks = {
+	Weak = { Eyes = 2, Blush = true },
+	Basic = { Eyes = 2, Leaf = true, Spots = 4 },
+	Hard = { Eyes = 2, Brows = true, Crystals = 6, CrystalColor = Color3.fromRGB(185, 235, 255), Particles = "Frost", Light = Color3.fromRGB(150, 220, 255) },
+	VeryHard = { Eyes = 3, Brows = true, Horns = true, Particles = "Shadow", Aura = Color3.fromRGB(190, 90, 255) },
+	Mega = { Eyes = 2, Brows = true, Spikes = 8, Cracks = 7, CrackColor = Color3.fromRGB(255, 130, 20), Particles = "Fire", Light = Color3.fromRGB(255, 120, 40), EyeGlow = true },
+	Boss = { Eyes = 4, Brows = true, Crown = true, Armor = true, Spikes = 10, Cracks = 9, CrackColor = Color3.fromRGB(255, 50, 50), Particles = "Embers", Light = Color3.fromRGB(255, 60, 60), EyeGlow = true, Aura = Color3.fromRGB(255, 70, 70) },
+}
+
+function SlimeConfig.GetLook(id)
+	return SlimeConfig.Looks[id] or {}
+end
+
 local byId = {}
 for index, def in ipairs(SlimeConfig.List) do
 	def.Index = index

@@ -39,7 +39,9 @@ ReplicatedStorage
 │  ├─ SlimeConfig       (ModuleScript)
 │  ├─ SwordConfig       (ModuleScript)
 │  ├─ EffectConfig      (ModuleScript)
-│  └─ RankConfig        (ModuleScript)
+│  ├─ RankConfig        (ModuleScript)
+│  ├─ IconConfig        (ModuleScript)
+│  └─ MapConfig         (ModuleScript)
 └─ Shared (Folder)
    ├─ Remotes           (ModuleScript)
    ├─ Util              (ModuleScript)
@@ -72,7 +74,10 @@ StarterPlayer
       ├─ CombatVFX           (ModuleScript)
       ├─ CombatController    (ModuleScript)
       ├─ CompanionController (ModuleScript)
-      └─ ConveyorController  (ModuleScript)
+      ├─ ConveyorController  (ModuleScript)
+      ├─ EggAnimator         (ModuleScript)
+      ├─ SlimeAnimator       (ModuleScript)
+      └─ DecorController     (ModuleScript)
 ```
 
 Pour chaque entrée : clic droit sur le parent → *Insert Object* → choisir **Folder**,

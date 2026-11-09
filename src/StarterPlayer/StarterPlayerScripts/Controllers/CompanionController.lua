@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Config.GameConfig)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local CombatVFX = require(script.Parent.CombatVFX)
+local EggAnimator = require(script.Parent.EggAnimator)
 
 local CompanionController = {}
 
@@ -76,6 +77,7 @@ function CompanionController.Init()
 
 					local current = model:GetPivot()
 					model:PivotTo(current:Lerp(target, alpha))
+					EggAnimator.Animate(model, now)
 				end
 			end
 		end

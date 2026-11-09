@@ -61,6 +61,29 @@ la sauvegarde les prennent en compte sans autre modification.
 `Required` = argent total gagné en combat (les ventes ne comptent pas). `MaxEquipped` = nombre
 d'œufs équipables à ce rang.
 
+## Apparence des slimes (`SlimeConfig.Looks`)
+
+Chaque catégorie a sa propre fiche d'apparence : nombre d'yeux, sourcils en colère, joues,
+pousse, taches, cristaux, cornes, pointes, fissures lumineuses, armure, couronne, particules
+(`Frost`, `Shadow`, `Fire`, `Embers`), lumière, aura, pupilles lumineuses. Par exemple pour
+rendre le slime basique menaçant : `Basic = { Eyes = 3, Brows = true, Spikes = 6 }`.
+
+## Décor (`MapConfig`)
+
+- `TreeStyles` : liste des styles d'arbres utilisés, parmi `"A"` boules étagées, `"B"` low poly
+  facetté, `"C"` sapin, `"D"` parasol/acacia, `"E"` palmier. Exemple : `{ "B", "C" }`.
+- `Decor` : nombre d'arbres, rochers, buissons, fleurs.
+- `Fence` : barrière low poly autour de la map (espacement des poteaux, hauteurs des traverses,
+  couleurs) et hauteur des murs invisibles.
+- `Clouds` : nombre, altitude et vitesse des nuages.
+- `Ground` : taille et couleur du sol (plastique lisse, pas d'herbe).
+
+## Apparence des œufs (`EggConfig`)
+
+- `Style` : `"Smooth"` (lisse, par défaut) ou `"Blocks"` (couches de blocs comme la photo).
+- `Ornaments` par rareté : pousse, éclats de cristal, anneaux, fissures, éclats en orbite.
+- Meshs externes possibles : voir `05-assets-externes.md`.
+
 ## Réglages généraux (`GameConfig`)
 
 - `Conveyor.Speed`, `SpawnInterval`, `MaxEggs`, `BuyDistance`.

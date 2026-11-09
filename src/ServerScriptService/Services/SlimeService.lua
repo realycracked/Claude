@@ -116,10 +116,9 @@ function SlimeService.ApplyDamage(state, player, amount)
 	local model = state.Model
 	model:SetAttribute("Health", math.max(0, state.Health))
 	SlimeBuilder.UpdateHealth(model, state.Health, state.Def.Health)
+	-- (le flash et la compression du coup sont animés par chaque client : SlimeAnimator)
 	if state.Health <= 0 then
 		kill(state)
-	else
-		SlimeBuilder.PlayHit(model, state.Def)
 	end
 	return true
 end

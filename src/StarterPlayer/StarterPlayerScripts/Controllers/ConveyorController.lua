@@ -9,6 +9,7 @@
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local EggAnimator = require(script.Parent.EggAnimator)
 
 local ConveyorController = {}
 
@@ -32,6 +33,7 @@ function ConveyorController.Init()
 				local position = start + direction * conf.Speed * elapsed
 				-- Petite rotation pour rendre l'œuf vivant
 				model:PivotTo(CFrame.new(position) * CFrame.Angles(0, elapsed * 0.6, 0))
+				EggAnimator.Animate(model, now)
 			end
 		end
 

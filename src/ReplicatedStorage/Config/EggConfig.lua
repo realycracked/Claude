@@ -115,6 +115,22 @@ EggConfig.Variants = {
 	{ Id = "Gold", Name = "Or", Weight = 3, PriceMult = 4, PowerMult = 2.5, Tint = Color3.fromRGB(255, 215, 0), Material = Enum.Material.Metal, Sparkles = true, LabelColor = Color3.fromRGB(255, 220, 60) },
 }
 
+-- Ornements 3D par rareté (en plus des taches, de la lumière, des particules et de l'aura)
+--  Leaf : pousse sur le dessus · Shards : éclats de cristal plantés · Bands : anneaux métalliques
+--  Cracks : fissures lumineuses · Orbit : petits éclats qui tournent autour (animés côté client)
+EggConfig.Ornaments = {
+	Common = {},
+	Uncommon = { Leaf = true },
+	Rare = { Shards = 5, ShardColor = Color3.fromRGB(190, 235, 255) },
+	Epic = { Bands = 1, BandColor = Color3.fromRGB(120, 40, 180), Orbit = 3, OrbitColor = Color3.fromRGB(255, 120, 255) },
+	Legendary = { Bands = 2, BandColor = Color3.fromRGB(255, 215, 60), Orbit = 4, OrbitColor = Color3.fromRGB(255, 245, 140) },
+	Mythic = { Cracks = 8, CrackColor = Color3.fromRGB(255, 40, 130), Shards = 4, ShardColor = Color3.fromRGB(255, 40, 130), Orbit = 5, OrbitColor = Color3.fromRGB(255, 40, 130) },
+}
+
+function EggConfig.GetOrnaments(rarityId)
+	return EggConfig.Ornaments[rarityId] or {}
+end
+
 local rarityById = {}
 for index, rarity in ipairs(EggConfig.Rarities) do
 	rarity.Index = index

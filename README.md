@@ -58,9 +58,16 @@ Le guide détaillé (avec la méthode « copier-coller chaque script ») est dan
   aperçu, achat, équipement, un seul à la fois, sauvegardés.
 - **Interface** : Home / Sell en haut, Bag / Shop / Index / Ranks à gauche, argent en bas à
   gauche, adaptée PC et mobile, confirmation avant chaque vente, icônes dessinées (pack PNG).
-- **Décor** : arbres cartoon à feuillage en boules (dont des cerisiers), rochers moussus,
-  buissons, fleurs ; slimes gélatineux translucides avec cœur, yeux, bouche et gouttes,
-  couronne pour le Boss.
+- **Décor** : 5 styles d'arbres au choix (boules étagées, low poly facetté, sapin, parasol,
+  palmier), rochers, buissons, fleurs, barrière low poly tout autour de la map avec murs
+  invisibles, nuages qui dérivent, sol lisse sans herbe.
+- **Slimes vraiment différents** : joues roses et pousse pour les petits, cristaux de glace et
+  givre, cornes et trois yeux avec fumée d'ombre, pointes et fissures de lave en feu, Boss à
+  quatre yeux, armure dorée, couronne et braises. Animations côté client : respiration,
+  clignement, flash et compression au coup, rétrécissement à la mort.
+- **Œufs** : style lisse (reflet, taches) ou blocs ; ornements par rareté (pousse, éclats de
+  cristal, anneaux métalliques, fissures lumineuses, éclats en orbite animés) ; meshs externes
+  branchables sans code (`docs/05-assets-externes.md`).
 - **Sauvegarde** DataStore avec gestion des erreurs (sauvegarde désactivée si le chargement échoue).
 - **Sécurité** : le serveur vérifie argent, distance, cadence, portée, possession ; le client ne
   choisit jamais les dégâts ni l'argent.

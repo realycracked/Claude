@@ -36,6 +36,8 @@
 | `SwordConfig` | 6 épées : prix, DPS, portée, style (couleurs, matériau, longueur, lueur). |
 | `EffectConfig` | 6 effets cosmétiques : prix, couleurs de traînée, couleur d'impact, lumière, particules. |
 | `RankConfig` | 6 rangs selon l'argent total gagné en combat ; chaque rang fixe le nombre d'œufs équipables. |
+| `IconConfig` | identifiants des images d'interface (pack `assets/icons/`) avec emoji de secours. |
+| `MapConfig` | sol, styles d'arbres (A à E), quantités de décor, barrière + murs invisibles, nuages. |
 
 ## Code partagé (`ReplicatedStorage.Shared`)
 
@@ -81,6 +83,9 @@ Builders : `MapBuilder` (sol, chemins, zones, arbres, rochers, tapis, spawn, lum
 | `CombatVFX` | animation du bras (Motor6D), traînée, impact (particules + lumière), nombres de dégâts, aperçu d'effet. Intensité selon le palier. |
 | `ConveyorController` | position des œufs = `StartPosition + direction × vitesse × (heure serveur − SpawnTime)` ; lamelles du tapis. |
 | `CompanionController` | suivi fluide (lerp) + flottement des œufs de tous les joueurs ; charge visuelle lors d'une attaque. |
+| `EggAnimator` | fait tourner les éclats "Orbit" autour des œufs (tapis et compagnons). |
+| `SlimeAnimator` | respiration, clignement, flash + compression au coup reçu, rétrécissement à la mort ; les pièces (yeux, cornes…) suivent la déformation. Zéro trafic réseau. |
+| `DecorController` | dérive des nuages, synchronisée sur l'heure serveur. |
 
 ## Données sauvegardées (profil)
 
