@@ -1,0 +1,1820 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><External>null</External><External>nil</External><Item class="Folder" referent="RBX16"><Properties><string name="Name">Builders</string></Properties><Item class="ModuleScript" referent="RBX13"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+	MapBuilder (ModuleScript)
+	Emplacement : ServerScriptService > Builders > MapBuilder
+
+	Génère tout le décor dans Workspace > Map :
+	pelouse, chemins beiges, zones de slimes, arbres, rochers, tapis roulant, spawn.
+	Appelé automatiquement par Main au démarrage (sauf si Workspace.Map existe déjà).
+
+	Astuce : pour "figer" la map et la modifier à la main dans Studio, tape dans la
+	barre de commande :  require(game.ServerScriptService.Builders.MapBuilder).Build()
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local SlimeConfig = require(ReplicatedStorage.Config.SlimeConfig)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local MapBuilder = {}
+
+local GRASS_COLOR = Color3.fromRGB(96, 200, 90)
+local PATH_COLOR = Color3.fromRGB(222, 200, 160)
+
+local function newPart(name, size, cframe, color, material, parent)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+local function folder(name, parent)
+	local f = Instance.new("Folder")
+	f.Name = name
+	f.Parent = parent
+	return f
+end
+
+-- Sol
+local function buildGround(map)
+	-- La map s'étend de z = +120 (spawn) à z = -420 (boss)
+	local ground = newPart("Ground", Vector3.new(340, 2, 540), CFrame.new(0, -1, -150), GRASS_COLOR, Enum.Material.Grass, map)
+	ground.Name = "Ground"
+	return ground
+end
+
+-- Chemins
+local function buildPaths(map)
+	local paths = folder("Paths", map)
+	-- Grand chemin central du spawn jusqu'au boss
+	newPart("MainPath", Vector3.new(12, 0.2, 480), CFrame.new(0, 0.1, -160), PATH_COLOR, Enum.Material.SmoothPlastic, paths)
+	-- Chemin autour du tapis
+	local conveyor = GameConfig.Conveyor
+	newPart("ConveyorPath", Vector3.new(conveyor.Length + 16, 0.2, conveyor.Width + 16), CFrame.new(conveyor.Center + Vector3.new(0, 0.1, 0)), PATH_COLOR, Enum.Material.SmoothPlastic, paths)
+	-- Place du spawn
+	newPart("SpawnPlaza", Vector3.new(40, 0.2, 30), CFrame.new(GameConfig.SpawnPosition.X, 0.1, GameConfig.SpawnPosition.Z), PATH_COLOR, Enum.Material.SmoothPlastic, paths)
+end
+
+-- Zones de slimes (cercle coloré + panneau)
+local function buildZones(map)
+	local zones = folder("Zones", map)
+	for _, def in ipairs(SlimeConfig.List) do
+		local center = def.ZonePosition
+		local diameter = def.ZoneRadius * 2
+		local color = def.Color:Lerp(GRASS_COLOR, 0.55)
+		local disc = newPart("Zone_" .. def.Id, Vector3.new(0.3, diameter, diameter), CFrame.new(center.X, 0.15, center.Z) * CFrame.Angles(0, 0, math.rad(90)), color, Enum.Material.SmoothPlastic, zones)
+		disc.Shape = Enum.PartType.Cylinder
+
+		-- Panneau à l'entrée de la zone (côté spawn)
+		local post = newPart("Sign_" .. def.Id, Vector3.new(0.6, 5, 0.6), CFrame.new(center.X + 9, 2.5, center.Z + def.ZoneRadius), Color3.fromRGB(110, 70, 35), Enum.Material.Wood, zones)
+		local board = newPart("Board", Vector3.new(6, 3, 0.4), CFrame.new(center.X + 9, 5.5, center.Z + def.ZoneRadius), Color3.fromRGB(160, 110, 60), Enum.Material.Wood, zones)
+		local gui = Instance.new("BillboardGui")
+		gui.Size = UDim2.fromOffset(260, 110)
+		gui.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0)
+		gui.MaxDistance = 160
+		gui.LightInfluence = 0
+		gui.Adornee = board
+		gui.Parent = board
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromScale(1, 1)
+		label.Font = Enum.Font.FredokaOne
+		label.TextScaled = true
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.Text = string.format("Zone %d\n%s\n%s PV  ·  %s $", def.Index, def.Name, Util.FormatNumber(def.Health), Util.FormatNumber(def.Reward))
+		label.Parent = gui
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 2.5
+		stroke.Color = Color3.new(0, 0, 0)
+		stroke.Parent = label
+	end
+end
+
+-- Un arbre low poly : tronc + 3 blocs de feuillage
+local function buildTree(parent, position, rng)
+	local scale = rng:NextNumber(0.8, 1.4)
+	local rotation = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	local trunk = newPart("Trunk", Vector3.new(1.4, 6, 1.4) * scale, CFrame.new(position + Vector3.new(0, 3 * scale, 0)) * rotation, Color3.fromRGB(120, 80, 45), Enum.Material.Wood, parent)
+	local greens = {
+		Color3.fromRGB(60, 160, 70),
+		Color3.fromRGB(75, 185, 80),
+		Color3.fromRGB(95, 205, 95),
+	}
+	local sizes = { 7, 5.2, 3.4 }
+	local heights = { 1.6, 2.2, 2.2 }
+	local y = 6 * scale
+	for i = 1, 3 do
+		local size = Vector3.new(sizes[i], heights[i], sizes[i]) * scale
+		local twist = CFrame.Angles(0, math.rad(i * 25), 0)
+		newPart("Leaves", size, CFrame.new(position + Vector3.new(0, y + size.Y / 2, 0)) * rotation * twist, greens[i], Enum.Material.SmoothPlastic, parent)
+		y = y + size.Y
+	end
+	return trunk
+end
+
+local function buildRock(parent, position, rng)
+	local size = Vector3.new(rng:NextNumber(2.5, 6), rng:NextNumber(1.8, 4), rng:NextNumber(2.5, 6))
+	local rotation = CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), rng:NextNumber(0, math.pi * 2), math.rad(rng:NextNumber(-12, 12)))
+	local grey = 110 + rng:NextInteger(-15, 20)
+	newPart("Rock", size, CFrame.new(position + Vector3.new(0, size.Y * 0.35, 0)) * rotation, Color3.fromRGB(grey, grey, grey + 8), Enum.Material.Slate, parent)
+end
+
+-- Vérifie qu'une position ne gêne pas le jeu (chemins, zones, tapis, spawn)
+local function isFree(position)
+	if math.abs(position.X) < 11 then
+		return false -- chemin central
+	end
+	local conveyor = GameConfig.Conveyor
+	local toConveyor = position - conveyor.Center
+	if math.abs(toConveyor.X) < conveyor.Length / 2 + 14 and math.abs(toConveyor.Z) < conveyor.Width / 2 + 14 then
+		return false
+	end
+	if (Vector3.new(position.X, 0, position.Z) - Vector3.new(GameConfig.SpawnPosition.X, 0, GameConfig.SpawnPosition.Z)).Magnitude < 28 then
+		return false
+	end
+	for _, def in ipairs(SlimeConfig.List) do
+		if (Vector3.new(position.X, 0, position.Z) - Vector3.new(def.ZonePosition.X, 0, def.ZonePosition.Z)).Magnitude < def.ZoneRadius + 8 then
+			return false
+		end
+	end
+	return true
+end
+
+local function buildNature(map)
+	local nature = folder("Nature", map)
+	local rng = Random.new(42) -- décor identique à chaque démarrage
+	local trees, rocks = 0, 0
+	local attempts = 0
+	while (trees < 70 or rocks < 30) and attempts < 2000 do
+		attempts = attempts + 1
+		local position = Vector3.new(rng:NextNumber(-160, 160), 0, rng:NextNumber(-410, 110))
+		if isFree(position) then
+			if trees < 70 and rng:NextNumber() < 0.7 then
+				buildTree(nature, position, rng)
+				trees = trees + 1
+			elseif rocks < 30 then
+				buildRock(nature, position, rng)
+				rocks = rocks + 1
+			end
+		end
+	end
+end
+
+-- Tapis roulant : bande noire, bordures grises, lamelles qui défilent (animées côté client)
+local function buildConveyor(map)
+	local conf = GameConfig.Conveyor
+	local model = Instance.new("Model")
+	model.Name = "Conveyor"
+	model.Parent = map
+
+	local direction = conf.Direction.Unit
+	local look = CFrame.lookAt(conf.Center, conf.Center + direction) -- axe Z local = direction
+	local beltCenter = look * CFrame.new(0, conf.BeltHeight / 2, 0)
+
+	-- La bande : longue selon la direction
+	local belt = newPart("Belt", Vector3.new(conf.Width, conf.BeltHeight, conf.Length), beltCenter, Color3.fromRGB(25, 25, 28), Enum.Material.SmoothPlastic, model)
+	belt.Name = "Belt"
+
+	-- Bordures
+	local borderHeight = conf.BeltHeight + 0.7
+	for _, side in ipairs({ -1, 1 }) do
+		local border = newPart("Border", Vector3.new(1.4, borderHeight, conf.Length + 2.8), look * CFrame.new(side * (conf.Width / 2 + 0.7), borderHeight / 2, 0), Color3.fromRGB(125, 125, 130), Enum.Material.SmoothPlastic, model)
+		border.Name = "Border"
+	end
+	-- Extrémités
+	for _, endSide in ipairs({ -1, 1 }) do
+		newPart("End", Vector3.new(conf.Width + 2.8, borderHeight, 1.4), look * CFrame.new(0, borderHeight / 2, endSide * (conf.Length / 2 + 0.7)), Color3.fromRGB(125, 125, 130), Enum.Material.SmoothPlastic, model)
+	end
+
+	-- Lamelles décoratives (déplacées par ConveyorController côté client)
+	local slats = folder("Slats", model)
+	local spacing = 3
+	local count = math.floor(conf.Length / spacing)
+	for i = 0, count - 1 do
+		local slat = newPart("Slat", Vector3.new(conf.Width - 1.6, 0.08, 1.2), look * CFrame.new(0, conf.BeltHeight + 0.04, -conf.Length / 2 + i * spacing), Color3.fromRGB(75, 75, 80), Enum.Material.SmoothPlastic, slats)
+		slat.CanCollide = false
+		slat.CanQuery = false
+		slat:SetAttribute("Offset", i * spacing)
+	end
+end
+
+local function buildSpawn(map)
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn"
+	spawn.Size = Vector3.new(10, 1, 10)
+	spawn.CFrame = CFrame.new(GameConfig.SpawnPosition.X, 0.5, GameConfig.SpawnPosition.Z)
+	spawn.Anchored = true
+	spawn.Color = Color3.fromRGB(245, 150, 40)
+	spawn.Material = Enum.Material.SmoothPlastic
+	spawn.TopSurface = Enum.SurfaceType.Smooth
+	spawn.Duration = 0
+	spawn.Parent = map
+end
+
+local function setupLighting()
+	Lighting.ClockTime = 14
+	Lighting.Brightness = 2.5
+	Lighting.Ambient = Color3.fromRGB(120, 120, 120)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
+	Lighting.GlobalShadows = true
+end
+
+function MapBuilder.Build()
+	if workspace:FindFirstChild("Map") then
+		return workspace.Map
+	end
+
+	-- Retire la baseplate et le spawn du modèle de départ de Studio
+	local oldBaseplate = workspace:FindFirstChild("Baseplate")
+	if oldBaseplate then
+		oldBaseplate:Destroy()
+	end
+	local oldSpawn = workspace:FindFirstChild("SpawnLocation")
+	if oldSpawn then
+		oldSpawn:Destroy()
+	end
+
+	local map = folder("Map", workspace)
+	buildGround(map)
+	buildPaths(map)
+	buildZones(map)
+	buildNature(map)
+	buildConveyor(map)
+	buildSpawn(map)
+	setupLighting()
+	return map
+end
+
+return MapBuilder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX14"><Properties><string name="Name">SlimeBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+	SlimeBuilder (ModuleScript)
+	Emplacement : ServerScriptService > Builders > SlimeBuilder
+
+	Construit le modèle 3D d'un slime (corps + yeux + barre de vie) et joue
+	ses animations simples (dégâts, mort).
+]]
+
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local SlimeBuilder = {}
+
+local function newPart(name, size, color, parent)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Color = color
+	part.Material = Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+function SlimeBuilder.GetBodySize(def)
+	return Vector3.new(def.Size, def.Size * 0.75, def.Size)
+end
+
+function SlimeBuilder.Build(def)
+	local size = def.Size
+	local model = Instance.new("Model")
+	model.Name = def.Name
+
+	-- Corps (ellipsoïde)
+	local body = newPart("Body", SlimeBuilder.GetBodySize(def), def.Color, model)
+	body.CanQuery = true
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = body
+	model.PrimaryPart = body
+
+	-- Yeux
+	for _, side in ipairs({ -1, 1 }) do
+		local eye = newPart("Eye", Vector3.new(size * 0.18, size * 0.18, size * 0.18), def.EyeColor, model)
+		eye.Shape = Enum.PartType.Ball
+		eye.CanQuery = false
+		eye.CFrame = body.CFrame * CFrame.new(side * size * 0.17, size * 0.12, -size * 0.4)
+		local shine = newPart("Shine", Vector3.new(size * 0.06, size * 0.06, size * 0.06), Color3.new(1, 1, 1), model)
+		shine.Shape = Enum.PartType.Ball
+		shine.CanQuery = false
+		shine.CFrame = eye.CFrame * CFrame.new(size * 0.03, size * 0.04, -size * 0.07)
+	end
+
+	-- Nom + barre de vie
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Info"
+	gui.Adornee = body
+	gui.Size = UDim2.fromOffset(190, 60)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, size * 0.75 / 2 + 2.5, 0)
+	gui.MaxDistance = 150
+	gui.LightInfluence = 0
+	gui.Parent = body
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Size = UDim2.new(1, 0, 0, 30)
+	nameLabel.Font = Enum.Font.FredokaOne
+	nameLabel.Text = def.Name
+	nameLabel.TextColor3 = def.Index >= 5 and Color3.fromRGB(255, 120, 90) or Color3.new(1, 1, 1)
+	nameLabel.TextSize = 24
+	nameLabel.Parent = gui
+	local nameStroke = Instance.new("UIStroke")
+	nameStroke.Thickness = 2.5
+	nameStroke.Color = Color3.new(0, 0, 0)
+	nameStroke.Parent = nameLabel
+
+	local barBackground = Instance.new("Frame")
+	barBackground.Name = "Bar"
+	barBackground.Size = UDim2.new(1, -20, 0, 20)
+	barBackground.Position = UDim2.fromOffset(10, 34)
+	barBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+	barBackground.BorderSizePixel = 0
+	barBackground.Parent = gui
+	local barCorner = Instance.new("UICorner")
+	barCorner.CornerRadius = UDim.new(0, 8)
+	barCorner.Parent = barBackground
+	local barStroke = Instance.new("UIStroke")
+	barStroke.Thickness = 2
+	barStroke.Color = Color3.new(0, 0, 0)
+	barStroke.Parent = barBackground
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = Color3.fromRGB(90, 230, 90)
+	fill.BorderSizePixel = 0
+	fill.Parent = barBackground
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.CornerRadius = UDim.new(0, 8)
+	fillCorner.Parent = fill
+
+	local hpLabel = Instance.new("TextLabel")
+	hpLabel.Name = "HpLabel"
+	hpLabel.BackgroundTransparency = 1
+	hpLabel.Size = UDim2.fromScale(1, 1)
+	hpLabel.Font = Enum.Font.FredokaOne
+	hpLabel.Text = Util.FormatNumber(def.Health) .. " / " .. Util.FormatNumber(def.Health)
+	hpLabel.TextColor3 = Color3.new(1, 1, 1)
+	hpLabel.TextSize = 15
+	hpLabel.Parent = barBackground
+	local hpStroke = Instance.new("UIStroke")
+	hpStroke.Thickness = 1.5
+	hpStroke.Color = Color3.new(0, 0, 0)
+	hpStroke.Parent = hpLabel
+
+	model:SetAttribute("SlimeId", def.Id)
+	model:SetAttribute("MaxHealth", def.Health)
+	model:SetAttribute("Health", def.Health)
+	model:SetAttribute("Alive", true)
+	return model
+end
+
+function SlimeBuilder.UpdateHealth(model, health, maxHealth)
+	local body = model.PrimaryPart
+	local gui = body and body:FindFirstChild("Info")
+	if not gui then
+		return
+	end
+	local ratio = math.clamp(health / maxHealth, 0, 1)
+	local bar = gui.Bar
+	bar.Fill.Size = UDim2.fromScale(ratio, 1)
+	bar.Fill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(90, 230, 90), ratio)
+	bar.HpLabel.Text = Util.FormatNumber(math.max(0, health)) .. " / " .. Util.FormatNumber(maxHealth)
+end
+
+-- Flash blanc + petite compression quand le slime est touché
+function SlimeBuilder.PlayHit(model, def)
+	local body = model.PrimaryPart
+	if not body then
+		return
+	end
+	local info = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+	local normal = SlimeBuilder.GetBodySize(def)
+	local tween = TweenService:Create(body, info, {
+		Color = Color3.new(1, 1, 1),
+		Size = Vector3.new(normal.X * 1.08, normal.Y * 0.85, normal.Z * 1.08),
+	})
+	tween:Play()
+	tween.Completed:Connect(function()
+		if body.Parent then
+			body.Color = def.Color
+			body.Size = normal
+		end
+	end)
+end
+
+-- Animation de mort : le slime rétrécit et disparaît (fonction bloquante ~0.45 s)
+function SlimeBuilder.PlayDeath(model)
+	local body = model.PrimaryPart
+	if not body then
+		return
+	end
+	local info = model:FindFirstChild("Info", true)
+	if info then
+		info.Enabled = false
+	end
+	local tweenInfo = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			TweenService:Create(part, tweenInfo, { Size = Vector3.new(0.05, 0.05, 0.05), Transparency = 1 }):Play()
+		end
+	end
+	task.wait(0.45)
+end
+
+return SlimeBuilder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX15"><Properties><string name="Name">SwordBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+	SwordBuilder (ModuleScript)
+	Emplacement : ServerScriptService > Builders > SwordBuilder
+
+	Construit l'épée (modèle "Sword" dans le personnage) et la soude à la main droite.
+	L'épée est toujours tenue : pas de Tool ni de barre d'outils à gérer.
+	La traînée (Trail) est créée ici ; sa couleur dépend de l'effet équipé.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SwordConfig = require(ReplicatedStorage.Config.SwordConfig)
+local EffectConfig = require(ReplicatedStorage.Config.EffectConfig)
+
+local SwordBuilder = {}
+
+local function newPart(name, size, color, material, parent)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Color = color
+	part.Material = material
+	part.Anchored = false
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Massless = true
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+local function getHand(character)
+	return character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+end
+
+function SwordBuilder.Attach(character, swordId, effectId)
+	local def = SwordConfig.Get(swordId) or SwordConfig.Get(SwordConfig.DefaultSword)
+	local hand = getHand(character)
+	if not hand then
+		return nil
+	end
+
+	local old = character:FindFirstChild("Sword")
+	if old then
+		old:Destroy()
+	end
+
+	local style = def.Style
+	local model = Instance.new("Model")
+	model.Name = "Sword"
+
+	-- Point de prise : la lame pointe vers l'avant de la main
+	local gripOffset
+	if hand.Name == "RightHand" then
+		gripOffset = CFrame.new(0, -0.15, 0)
+	else
+		gripOffset = CFrame.new(0, -1, 0) -- R6
+	end
+	gripOffset = gripOffset * CFrame.Angles(-math.pi / 2, 0, 0)
+	local handleCFrame = hand.CFrame * gripOffset
+
+	local handle = newPart("Handle", Vector3.new(0.3, 1.1, 0.3), style.GripColor, Enum.Material.SmoothPlastic, model)
+	handle.CFrame = handleCFrame
+
+	local pommel = newPart("Pommel", Vector3.new(0.45, 0.3, 0.45), style.GuardColor, Enum.Material.Metal, model)
+	pommel.CFrame = handleCFrame * CFrame.new(0, -0.7, 0)
+
+	local guard = newPart("Guard", Vector3.new(1.3, 0.22, 0.42), style.GuardColor, Enum.Material.Metal, model)
+	guard.CFrame = handleCFrame * CFrame.new(0, 0.65, 0)
+
+	local blade = newPart("Blade", Vector3.new(0.18, style.Length, 0.6), style.BladeColor, style.Material, model)
+	blade.CFrame = handleCFrame * CFrame.new(0, 0.76 + style.Length / 2, 0)
+
+	local tip = Instance.new("WedgePart")
+	tip.Name = "Tip"
+	tip.Size = Vector3.new(0.18, 0.6, 0.6)
+	tip.Color = style.BladeColor
+	tip.Material = style.Material
+	tip.Anchored = false
+	tip.CanCollide = false
+	tip.CanQuery = false
+	tip.CanTouch = false
+	tip.Massless = true
+	tip.CastShadow = false
+	-- Pointe biseautée posée sur le haut de la lame
+	tip.CFrame = handleCFrame * CFrame.new(0, 0.76 + style.Length + 0.3, 0)
+	tip.Parent = model
+
+	-- Traînée lumineuse (activée pendant les coups par le client)
+	local top = Instance.new("Attachment")
+	top.Name = "TrailTop"
+	top.Position = Vector3.new(0, style.Length / 2 + 0.5, 0)
+	top.Parent = blade
+	local bottom = Instance.new("Attachment")
+	bottom.Name = "TrailBottom"
+	bottom.Position = Vector3.new(0, -style.Length / 2 + 0.2, 0)
+	bottom.Parent = blade
+
+	local trail = Instance.new("Trail")
+	trail.Name = "Trail"
+	trail.Attachment0 = top
+	trail.Attachment1 = bottom
+	trail.Enabled = false
+	trail.Lifetime = 0.2
+	trail.MinLength = 0
+	trail.FaceCamera = true
+	trail.LightEmission = 0.8
+	trail.LightInfluence = 0
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	trail.WidthScale = NumberSequence.new(1)
+	trail.Parent = blade
+
+	if style.Glow then
+		local light = Instance.new("PointLight")
+		light.Color = style.Glow
+		light.Range = 7
+		light.Brightness = 1.2
+		light.Parent = blade
+	end
+
+	-- Soudures : tout est attaché au manche, le manche est attaché à la main
+	for _, part in ipairs(model:GetChildren()) do
+		if part ~= handle and part:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
+	local grip = Instance.new("Weld")
+	grip.Name = "Grip"
+	grip.Part0 = hand
+	grip.Part1 = handle
+	grip.C0 = gripOffset
+	grip.Parent = handle
+
+	model.PrimaryPart = handle
+	model:SetAttribute("SwordId", def.Id)
+	model.Parent = character
+
+	SwordBuilder.ApplyEffect(character, effectId)
+	return model
+end
+
+-- Applique la couleur de traînée de l'effet équipé (ou blanc par défaut)
+function SwordBuilder.ApplyEffect(character, effectId)
+	local sword = character:FindFirstChild("Sword")
+	local blade = sword and sword:FindFirstChild("Blade")
+	local trail = blade and blade:FindFirstChild("Trail")
+	if not trail then
+		return
+	end
+	local effect = EffectConfig.Get(effectId)
+	if effect then
+		trail.Color = effect.TrailColor
+		trail.LightEmission = 1
+	else
+		trail.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+		trail.LightEmission = 0.6
+	end
+	sword:SetAttribute("Effect", effect and effect.Id or "")
+end
+
+return SwordBuilder
+]]></ProtectedString></Properties></Item></Item><Item class="Folder" referent="RBX26"><Properties><string name="Name">Services</string></Properties><Item class="ModuleScript" referent="RBX17"><Properties><string name="Name">CombatService</string><ProtectedString name="Source"><![CDATA[--[[
+	CombatService (ModuleScript)
+	Emplacement : ServerScriptService > Services > CombatService
+
+	Reçoit les attaques du joueur (RemoteEvent "Attack") et fait attaquer les œufs
+	équipés automatiquement. Le SERVEUR calcule les dégâts, vérifie la cadence,
+	la portée et la cible : le client n'envoie que "je frappe ce slime".
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local SwordConfig = require(ReplicatedStorage.Config.SwordConfig)
+local CombatMath = require(ReplicatedStorage.Shared.CombatMath)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+
+local DataService = require(ServerScriptService.Services.DataService)
+local SlimeService = require(ServerScriptService.Services.SlimeService)
+
+local CombatService = {}
+
+local Attack = Remotes.Get("Attack")
+local AttackVFX = Remotes.Get("AttackVFX")
+local CompanionAttack = Remotes.Get("CompanionAttack")
+
+local lastAttack = {} -- [player] = os.clock() du dernier coup accepté
+local lastTarget = {} -- [player] = state du dernier slime frappé
+local combatUntil = {} -- [player] = heure jusqu'à laquelle les œufs attaquent
+local eggTimers = {} -- [player] = { [eggId] = prochaine attaque }
+
+local function getRoot(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return nil
+	end
+	return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function onAttack(player, slimeModel)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	if typeof(slimeModel) ~= "Instance" then
+		return
+	end
+	local state = SlimeService.GetState(slimeModel)
+	if not state or not state.Alive then
+		return
+	end
+	local root = getRoot(player)
+	if not root then
+		return
+	end
+
+	-- Cadence (avec une tolérance pour la latence)
+	local damage, interval, tierIndex = CombatMath.GetSwordAttack(profile)
+	local now = os.clock()
+	if now - (lastAttack[player] or 0) < interval * GameConfig.Combat.CooldownTolerance then
+		return
+	end
+
+	-- Portée
+	local sword = SwordConfig.Get(profile.EquippedSword) or SwordConfig.Get(SwordConfig.DefaultSword)
+	local slimePosition = slimeModel:GetPivot().Position
+	local distance = (root.Position - slimePosition).Magnitude
+	if distance > sword.Range + state.Def.Size / 2 + GameConfig.Combat.DistanceTolerance then
+		return
+	end
+
+	lastAttack[player] = now
+	combatUntil[player] = now + GameConfig.Combat.CombatTimeout
+	lastTarget[player] = state
+
+	SlimeService.ApplyDamage(state, player, damage)
+	AttackVFX:FireAllClients(player, slimeModel, slimePosition, damage, tierIndex, profile.EquippedEffect or "")
+end
+
+-- Attaques automatiques des œufs équipés (pendant le combat seulement)
+local function companionStep()
+	local now = os.clock()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if (combatUntil[player] or 0) > now then
+			local profile = DataService.Get(player)
+			local root = profile and getRoot(player)
+			if root then
+				local timers = eggTimers[player]
+				if not timers then
+					timers = {}
+					eggTimers[player] = timers
+				end
+				local range = GameConfig.Combat.CompanionRange
+				for slot, eggId in ipairs(profile.Equipped) do
+					if (timers[eggId] or 0) <= now then
+						local item = CombatMath.FindEgg(profile, eggId)
+						if item then
+							local damage, interval = CombatMath.GetEggAttack(item)
+							local target = lastTarget[player]
+							if not (target and target.Alive and target.Model.Parent and (target.Model:GetPivot().Position - root.Position).Magnitude <= range) then
+								target = SlimeService.GetNearest(root.Position, range)
+							end
+							if target then
+								timers[eggId] = now + interval
+								local position = target.Model:GetPivot().Position
+								local targetModel = target.Model
+								SlimeService.ApplyDamage(target, player, damage)
+								CompanionAttack:FireAllClients(player.UserId, slot, targetModel, position, damage)
+							else
+								timers[eggId] = now + 0.25 -- réessaie bientôt
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+function CombatService.Init()
+	Attack.OnServerEvent:Connect(onAttack)
+	RunService.Heartbeat:Connect(companionStep)
+	Players.PlayerRemoving:Connect(function(player)
+		lastAttack[player] = nil
+		lastTarget[player] = nil
+		combatUntil[player] = nil
+		eggTimers[player] = nil
+	end)
+end
+
+return CombatService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX18"><Properties><string name="Name">CompanionService</string><ProtectedString name="Source"><![CDATA[--[[
+	CompanionService (ModuleScript)
+	Emplacement : ServerScriptService > Services > CompanionService
+
+	Crée les modèles 3D des œufs équipés dans Workspace > Companions > <NomDuJoueur>.
+	Le mouvement (suivi fluide + flottement) est calculé par chaque client
+	(CompanionController) : le serveur ne fait que créer / supprimer les modèles.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local EggBuilder = require(ReplicatedStorage.Shared.EggBuilder)
+local CombatMath = require(ReplicatedStorage.Shared.CombatMath)
+local DataService = require(ServerScriptService.Services.DataService)
+
+local CompanionService = {}
+
+local root = workspace:WaitForChild("Companions")
+
+local function getFolder(player)
+	local folder = root:FindFirstChild(player.Name)
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = player.Name
+		folder.Parent = root
+	end
+	return folder
+end
+
+-- Reconstruit les compagnons d'après la liste des œufs équipés
+function CompanionService.Refresh(player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local folder = getFolder(player)
+	folder:ClearAllChildren()
+
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	local baseCFrame = hrp and hrp.CFrame or CFrame.new(GameConfig.SpawnPosition)
+
+	for slot, eggId in ipairs(profile.Equipped) do
+		local item = CombatMath.FindEgg(profile, eggId)
+		if item then
+			local model = EggBuilder.Build(item.Rarity, item.Variant, GameConfig.Companion.Scale)
+			model.Name = "Companion_" .. eggId
+			model:SetAttribute("Owner", player.UserId)
+			model:SetAttribute("Slot", slot)
+			model:SetAttribute("EggId", eggId)
+			local offset = GameConfig.Companion.Offsets[slot] or GameConfig.Companion.Offsets[#GameConfig.Companion.Offsets]
+			model:PivotTo(baseCFrame * CFrame.new(offset))
+			model.Parent = folder
+		end
+	end
+end
+
+function CompanionService.Remove(player)
+	local folder = root:FindFirstChild(player.Name)
+	if folder then
+		folder:Destroy()
+	end
+end
+
+return CompanionService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX19"><Properties><string name="Name">ConveyorService</string><ProtectedString name="Source"><![CDATA[--[[
+	ConveyorService (ModuleScript)
+	Emplacement : ServerScriptService > Services > ConveyorService
+
+	Fait apparaître les œufs à une extrémité du tapis et les détruit à l'autre.
+	Le déplacement visuel est calculé par chaque client d'après l'heure d'apparition
+	(attribut SpawnTime) : c'est fluide et le serveur retrouve la position exacte
+	au moment de l'achat pour vérifier la distance.
+
+	Achat : ProximityPrompt (touche E sur PC, bouton tactile sur mobile).
+	Un œuf ne peut être acheté qu'une seule fois, même si deux joueurs appuient en même temps.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local EggConfig = require(ReplicatedStorage.Config.EggConfig)
+local EggBuilder = require(ReplicatedStorage.Shared.EggBuilder)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local DataService = require(ServerScriptService.Services.DataService)
+local PlayerService = require(ServerScriptService.Services.PlayerService)
+local InventoryService = require(ServerScriptService.Services.InventoryService)
+
+local ConveyorService = {}
+
+local conf = GameConfig.Conveyor
+local eggsFolder = workspace:WaitForChild("ConveyorEggs")
+local random = Random.new()
+
+local direction = conf.Direction.Unit
+local travelLength = conf.Length - 4
+local travelTime = travelLength / conf.Speed
+
+local function startPosition()
+	local eggHeight = EggBuilder.GetHeight(conf.EggScale)
+	return conf.Center - direction * (travelLength / 2) + Vector3.new(0, conf.BeltHeight + eggHeight / 2, 0)
+end
+
+-- Position actuelle d'un œuf (même formule que le client)
+function ConveyorService.GetEggPosition(model)
+	local spawnTime = model:GetAttribute("SpawnTime") or 0
+	local start = model:GetAttribute("StartPosition") or startPosition()
+	local elapsed = workspace:GetServerTimeNow() - spawnTime
+	return start + direction * conf.Speed * elapsed
+end
+
+local function tryBuy(player, model)
+	if not model.Parent then
+		return
+	end
+	-- Réservation immédiate : le premier arrivé gagne
+	if model:GetAttribute("Sold") then
+		PlayerService.Notify(player, "Trop tard, cet œuf vient d'être acheté !", Color3.fromRGB(255, 120, 120))
+		return
+	end
+	model:SetAttribute("Sold", true)
+
+	local function refuse(message)
+		model:SetAttribute("Sold", false)
+		PlayerService.Notify(player, message, Color3.fromRGB(255, 120, 120))
+	end
+
+	local profile = DataService.Get(player)
+	if not profile then
+		return refuse("Profil non chargé")
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return refuse("Personnage introuvable")
+	end
+	local distance = (root.Position - ConveyorService.GetEggPosition(model)).Magnitude
+	if distance > conf.BuyDistance + GameConfig.Combat.DistanceTolerance then
+		return refuse("Trop loin de l'œuf")
+	end
+	local price = model:GetAttribute("Price") or 0
+	if not PlayerService.SpendCash(player, price) then
+		return refuse("Pas assez d'argent (" .. Util.FormatNumber(price) .. " $)")
+	end
+
+	local rarityId = model:GetAttribute("Rarity")
+	local variantId = model:GetAttribute("Variant")
+	model:Destroy()
+	InventoryService.AddEgg(player, rarityId, variantId)
+	PlayerService.Notify(player, "🥚 " .. EggConfig.GetDisplayName(rarityId, variantId) .. " acheté !", Color3.fromRGB(120, 255, 120))
+end
+
+local function spawnEgg()
+	local rarity = EggConfig.RollRarity(random)
+	local variant = EggConfig.RollVariant(random)
+	local price = EggConfig.GetPrice(rarity.Id, variant.Id)
+
+	local model = EggBuilder.Build(rarity.Id, variant.Id, conf.EggScale)
+	model.Name = "ConveyorEgg"
+	local start = startPosition()
+	model:SetAttribute("Price", price)
+	model:SetAttribute("SpawnTime", workspace:GetServerTimeNow())
+	model:SetAttribute("StartPosition", start)
+	model:SetAttribute("Sold", false)
+	model:PivotTo(CFrame.new(start))
+
+	EggBuilder.AddLabel(model, rarity.Id, variant.Id, price)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = "Acheter"
+	prompt.ObjectText = EggConfig.GetDisplayName(rarity.Id, variant.Id) .. "  •  " .. Util.FormatNumber(price) .. " $"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = conf.BuyDistance
+	prompt.RequiresLineOfSight = false
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.UIOffset = Vector2.new(0, 40)
+	prompt.Parent = model.PrimaryPart
+	prompt.Triggered:Connect(function(player)
+		tryBuy(player, model)
+	end)
+
+	model.Parent = eggsFolder
+
+	-- Disparition au bout du tapis
+	task.delay(travelTime, function()
+		if model.Parent then
+			model:Destroy()
+		end
+	end)
+end
+
+function ConveyorService.Init()
+	task.spawn(function()
+		task.wait(2)
+		while true do
+			if #eggsFolder:GetChildren() < conf.MaxEggs then
+				spawnEgg()
+			end
+			task.wait(conf.SpawnInterval)
+		end
+	end)
+end
+
+return ConveyorService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX20"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[--[[
+	DataService (ModuleScript)
+	Emplacement : ServerScriptService > Services > DataService
+
+	Chargement / sauvegarde des profils avec DataStoreService.
+	- Si le chargement échoue, le joueur joue avec un profil vide MAIS la sauvegarde
+	  est désactivée pour la session (pour ne jamais écraser une vraie sauvegarde).
+	- Sauvegarde automatique, à la déconnexion et à la fermeture du serveur.
+
+	Dans Studio : Game Settings > Security > "Enable Studio Access to API Services"
+	doit être coché pour que les DataStores fonctionnent en test.
+]]
+
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local SwordConfig = require(ReplicatedStorage.Config.SwordConfig)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local DataService = {}
+
+local store = nil
+local sessions = {} -- [player] = { Data = table, Loaded = boolean }
+
+-- Profil d'un nouveau joueur
+local function defaultProfile()
+	return {
+		Cash = GameConfig.StartCash,
+		TotalEarned = 0, -- argent total gagné en combat (sert pour les rangs)
+		Kills = 0,
+		Eggs = {}, -- { {Id = "e1", Rarity = "Common", Variant = "Normal"}, ... }
+		NextEggId = 1,
+		Equipped = {}, -- identifiants des œufs équipés
+		Swords = { SwordConfig.DefaultSword },
+		EquippedSword = SwordConfig.DefaultSword,
+		Effects = {},
+		EquippedEffect = "",
+		Discovered = {}, -- ["Common_Normal"] = true
+	}
+end
+
+local function keyFor(player)
+	return "player_" .. player.UserId
+end
+
+function DataService.Init()
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore(GameConfig.Data.StoreName)
+	end)
+	if ok then
+		store = result
+	else
+		warn("[DataService] DataStore indisponible : " .. tostring(result))
+	end
+
+	Players.PlayerRemoving:Connect(function(player)
+		DataService.Save(player)
+		sessions[player] = nil
+	end)
+
+	game:BindToClose(function()
+		local remaining = 0
+		for player in pairs(sessions) do
+			remaining = remaining + 1
+			task.spawn(function()
+				DataService.Save(player)
+				remaining = remaining - 1
+			end)
+		end
+		local start = os.clock()
+		while remaining > 0 and os.clock() - start < 25 do
+			task.wait(0.1)
+		end
+	end)
+
+	-- Sauvegarde automatique
+	task.spawn(function()
+		while true do
+			task.wait(GameConfig.Data.AutosaveInterval)
+			for player in pairs(sessions) do
+				DataService.Save(player)
+				task.wait(0.5)
+			end
+		end
+	end)
+end
+
+-- Charge le profil (bloquant). Retourne la session { Data, Loaded }.
+function DataService.Load(player)
+	local session = { Data = defaultProfile(), Loaded = false }
+	sessions[player] = session
+
+	if not store then
+		warn("[DataService] Pas de DataStore : " .. player.Name .. " joue sans sauvegarde.")
+		return session
+	end
+
+	local success, data = false, nil
+	for attempt = 1, GameConfig.Data.LoadRetries do
+		success, data = pcall(store.GetAsync, store, keyFor(player))
+		if success then
+			break
+		end
+		warn(string.format("[DataService] Échec chargement %s (essai %d) : %s", player.Name, attempt, tostring(data)))
+		task.wait(attempt)
+	end
+
+	-- Le joueur est parti pendant le chargement
+	if sessions[player] ~= session then
+		return session
+	end
+
+	if success then
+		if type(data) == "table" then
+			session.Data = Util.Reconcile(data, defaultProfile())
+		end
+		session.Loaded = true
+	else
+		warn("[DataService] Sauvegarde DÉSACTIVÉE pour " .. player.Name .. " (chargement impossible).")
+	end
+	return session
+end
+
+function DataService.Get(player)
+	local session = sessions[player]
+	return session and session.Data or nil
+end
+
+function DataService.IsLoaded(player)
+	local session = sessions[player]
+	return session ~= nil and session.Loaded
+end
+
+function DataService.Save(player)
+	local session = sessions[player]
+	if not session or not session.Loaded or not store then
+		return false
+	end
+	local data = session.Data
+	local ok, err = pcall(store.UpdateAsync, store, keyFor(player), function()
+		return data
+	end)
+	if not ok then
+		warn("[DataService] Échec sauvegarde " .. player.Name .. " : " .. tostring(err))
+	end
+	return ok
+end
+
+return DataService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX21"><Properties><string name="Name">InventoryService</string><ProtectedString name="Source"><![CDATA[--[[
+	InventoryService (ModuleScript)
+	Emplacement : ServerScriptService > Services > InventoryService
+
+	Œufs possédés : ajout (achat), équiper / retirer, "Équiper les meilleurs", vente.
+	Toutes les vérifications sont faites ici, côté serveur.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local EggConfig = require(ReplicatedStorage.Config.EggConfig)
+local RankConfig = require(ReplicatedStorage.Config.RankConfig)
+local CombatMath = require(ReplicatedStorage.Shared.CombatMath)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local DataService = require(ServerScriptService.Services.DataService)
+local PlayerService = require(ServerScriptService.Services.PlayerService)
+local CompanionService = require(ServerScriptService.Services.CompanionService)
+local RequestRouter = require(ServerScriptService.Services.RequestRouter)
+
+local InventoryService = {}
+
+local function isEquipped(profile, eggId)
+	return table.find(profile.Equipped, eggId) ~= nil
+end
+
+local function unequip(profile, eggId)
+	local index = table.find(profile.Equipped, eggId)
+	if index then
+		table.remove(profile.Equipped, index)
+		return true
+	end
+	return false
+end
+
+function InventoryService.GetMaxEquipped(profile)
+	return RankConfig.GetMaxEquipped(profile.TotalEarned)
+end
+
+-- Prix de revente d'un œuf
+function InventoryService.GetSellPrice(item)
+	return math.max(1, math.floor(EggConfig.GetPrice(item.Rarity, item.Variant) * GameConfig.Sell.RefundRatio))
+end
+
+-- Ajoute un œuf au profil (après un achat validé). Équipe automatiquement s'il reste une place.
+function InventoryService.AddEgg(player, rarityId, variantId)
+	local profile = DataService.Get(player)
+	if not profile then
+		return nil
+	end
+	local item = { Id = "e" .. profile.NextEggId, Rarity = rarityId, Variant = variantId }
+	profile.NextEggId = profile.NextEggId + 1
+	table.insert(profile.Eggs, item)
+	profile.Discovered[EggConfig.GetIndexKey(rarityId, variantId)] = true
+
+	if #profile.Equipped < InventoryService.GetMaxEquipped(profile) then
+		table.insert(profile.Equipped, item.Id)
+	end
+	CompanionService.Refresh(player)
+	PlayerService.Push(player)
+	return item
+end
+
+local function finish(player)
+	CompanionService.Refresh(player)
+	PlayerService.Push(player)
+end
+
+function InventoryService.Init()
+	RequestRouter.Register("EquipEgg", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local item = type(payload.id) == "string" and CombatMath.FindEgg(profile, payload.id)
+		if not item then
+			return false, "Œuf introuvable"
+		end
+		if isEquipped(profile, item.Id) then
+			return false, "Déjà équipé"
+		end
+		local max = InventoryService.GetMaxEquipped(profile)
+		if #profile.Equipped >= max then
+			return false, "Limite atteinte : " .. max .. " œufs équipés (monte en rang pour en équiper plus)"
+		end
+		table.insert(profile.Equipped, item.Id)
+		finish(player)
+		return true, EggConfig.GetDisplayName(item.Rarity, item.Variant) .. " équipé"
+	end)
+
+	RequestRouter.Register("UnequipEgg", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		if type(payload.id) ~= "string" or not unequip(profile, payload.id) then
+			return false, "Cet œuf n'est pas équipé"
+		end
+		finish(player)
+		return true, "Œuf retiré"
+	end)
+
+	RequestRouter.Register("EquipBest", function(player)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local sorted = table.clone(profile.Eggs)
+		table.sort(sorted, function(a, b)
+			return CombatMath.GetEggItemDPS(a) > CombatMath.GetEggItemDPS(b)
+		end)
+		local max = InventoryService.GetMaxEquipped(profile)
+		profile.Equipped = {}
+		for i = 1, math.min(max, #sorted) do
+			table.insert(profile.Equipped, sorted[i].Id)
+		end
+		finish(player)
+		return true, "Meilleurs œufs équipés (" .. #profile.Equipped .. "/" .. max .. ")"
+	end)
+
+	RequestRouter.Register("SellEgg", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local item = type(payload.id) == "string" and CombatMath.FindEgg(profile, payload.id)
+		if not item then
+			return false, "Œuf introuvable"
+		end
+		local price = InventoryService.GetSellPrice(item)
+		unequip(profile, item.Id)
+		table.remove(profile.Eggs, table.find(profile.Eggs, item))
+		PlayerService.AddCash(player, price, false)
+		finish(player)
+		return true, EggConfig.GetDisplayName(item.Rarity, item.Variant) .. " vendu pour " .. Util.FormatNumber(price) .. " $"
+	end)
+
+	RequestRouter.Register("SellUnequipped", function(player)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local total, count = 0, 0
+		local kept = {}
+		for _, item in ipairs(profile.Eggs) do
+			if isEquipped(profile, item.Id) then
+				table.insert(kept, item)
+			else
+				total = total + InventoryService.GetSellPrice(item)
+				count = count + 1
+			end
+		end
+		if count == 0 then
+			return false, "Aucun œuf non équipé à vendre"
+		end
+		profile.Eggs = kept
+		PlayerService.AddCash(player, total, false)
+		finish(player)
+		return true, count .. " œuf(s) vendu(s) pour " .. Util.FormatNumber(total) .. " $"
+	end)
+end
+
+return InventoryService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX22"><Properties><string name="Name">PlayerService</string><ProtectedString name="Source"><![CDATA[--[[
+	PlayerService (ModuleScript)
+	Emplacement : ServerScriptService > Services > PlayerService
+
+	Arrivée / départ des joueurs, leaderstats, envoi du profil au client,
+	argent (AddCash / SpendCash) et rangs.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local GameConfig = require(ReplicatedStorage.Config.GameConfig)
+local RankConfig = require(ReplicatedStorage.Config.RankConfig)
+local CombatMath = require(ReplicatedStorage.Shared.CombatMath)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local DataService = require(ServerScriptService.Services.DataService)
+local CompanionService = require(ServerScriptService.Services.CompanionService)
+local RequestRouter = require(ServerScriptService.Services.RequestRouter)
+local SwordBuilder = require(ServerScriptService.Builders.SwordBuilder)
+
+local PlayerService = {}
+
+local ProfileUpdated = Remotes.Get("ProfileUpdated")
+local Notify = Remotes.Get("Notify")
+
+-- Message affiché en haut de l'écran du joueur
+function PlayerService.Notify(player, message, color)
+	Notify:FireClient(player, message, color)
+end
+
+-- Envoie une copie du profil au client et met à jour les attributs publics
+function PlayerService.Push(player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local tierIndex = CombatMath.GetTier(CombatMath.GetTotalDPS(profile))
+	player:SetAttribute("Tier", tierIndex)
+	player:SetAttribute("Effect", profile.EquippedEffect or "")
+	local rankId, rank = RankConfig.GetRank(profile.TotalEarned)
+	player:SetAttribute("Rank", rankId)
+
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		leaderstats.Cash.Value = math.floor(profile.Cash)
+		leaderstats.Rang.Value = rank.Name
+	end
+	ProfileUpdated:FireClient(player, profile)
+end
+
+-- Ajoute de l'argent. countsForRank = true pour l'argent gagné en combat.
+function PlayerService.AddCash(player, amount, countsForRank)
+	local profile = DataService.Get(player)
+	if not profile or amount == 0 then
+		return
+	end
+	profile.Cash = profile.Cash + amount
+	if countsForRank and amount > 0 then
+		local oldRank = RankConfig.GetRank(profile.TotalEarned)
+		profile.TotalEarned = profile.TotalEarned + amount
+		local newRank, def = RankConfig.GetRank(profile.TotalEarned)
+		if newRank > oldRank then
+			PlayerService.Notify(player, "🏆 Nouveau rang : " .. def.Name .. " ! (" .. def.MaxEquipped .. " œufs équipables)", Color3.fromRGB(255, 215, 0))
+		end
+	end
+	PlayerService.Push(player)
+end
+
+-- Retire de l'argent si le joueur en a assez. Retourne true si réussi.
+function PlayerService.SpendCash(player, amount)
+	local profile = DataService.Get(player)
+	if not profile or profile.Cash < amount then
+		return false
+	end
+	profile.Cash = profile.Cash - amount
+	return true
+end
+
+local function onCharacterAdded(player, character)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	character:WaitForChild("HumanoidRootPart", 10)
+	task.wait(0.2) -- laisse le personnage finir de se charger
+	if character.Parent then
+		SwordBuilder.Attach(character, profile.EquippedSword, profile.EquippedEffect)
+	end
+end
+
+local function onPlayerAdded(player)
+	local session = DataService.Load(player)
+	if player.Parent ~= Players then
+		return
+	end
+	local profile = session.Data
+
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	local cash = Instance.new("IntValue")
+	cash.Name = "Cash"
+	cash.Value = math.floor(profile.Cash)
+	cash.Parent = leaderstats
+	local rang = Instance.new("StringValue")
+	rang.Name = "Rang"
+	rang.Parent = leaderstats
+	leaderstats.Parent = player
+
+	player.CharacterAdded:Connect(function(character)
+		onCharacterAdded(player, character)
+	end)
+	if player.Character then
+		task.spawn(onCharacterAdded, player, player.Character)
+	end
+
+	CompanionService.Refresh(player)
+	PlayerService.Push(player)
+
+	if not session.Loaded then
+		task.delay(3, function()
+			PlayerService.Notify(player, "⚠️ Données non chargées : la sauvegarde est désactivée pour cette session.", Color3.fromRGB(255, 120, 120))
+		end)
+	else
+		task.delay(2, function()
+			PlayerService.Notify(player, "Bienvenue " .. player.DisplayName .. " ! Frappe les slimes pour gagner de l'argent.", Color3.fromRGB(255, 255, 255))
+		end)
+	end
+end
+
+function PlayerService.Init()
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	for _, player in ipairs(Players:GetPlayers()) do
+		task.spawn(onPlayerAdded, player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		CompanionService.Remove(player)
+	end)
+
+	-- Le client demande son profil au démarrage (au cas où il aurait raté le premier envoi)
+	RequestRouter.Register("GetProfile", function(player)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil en cours de chargement"
+		end
+		return true, nil, profile
+	end)
+
+	-- Bouton Home : retour au point de départ
+	RequestRouter.Register("GoHome", function(player)
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then
+			return false, "Personnage introuvable"
+		end
+		character:PivotTo(CFrame.new(GameConfig.SpawnPosition))
+		return true, "Retour à la maison"
+	end)
+end
+
+return PlayerService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX23"><Properties><string name="Name">RequestRouter</string><ProtectedString name="Source"><![CDATA[--[[
+	RequestRouter (ModuleScript)
+	Emplacement : ServerScriptService > Services > RequestRouter
+
+	Une seule RemoteFunction "Request" pour toutes les actions du client.
+	Chaque service enregistre ses actions :  Router.Register("BuySword", function(player, payload) ... end)
+	Le gestionnaire retourne : ok (bool), message (texte), data (facultatif).
+	Le client reçoit toujours une table { ok = ..., message = ..., data = ... }.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+
+local RequestRouter = {}
+
+local handlers = {}
+local lastRequest = {} -- anti-spam : [player] = os.clock()
+
+function RequestRouter.Register(action, handler)
+	handlers[action] = handler
+end
+
+function RequestRouter.Init()
+	local request = Remotes.Get("Request")
+	request.OnServerInvoke = function(player, action, payload)
+		if type(action) ~= "string" then
+			return { ok = false, message = "Requête invalide" }
+		end
+		local now = os.clock()
+		if now - (lastRequest[player] or 0) < 0.05 then
+			return { ok = false, message = "Trop rapide !" }
+		end
+		lastRequest[player] = now
+
+		local handler = handlers[action]
+		if not handler then
+			return { ok = false, message = "Action inconnue : " .. action }
+		end
+		if type(payload) ~= "table" then
+			payload = {}
+		end
+
+		local success, ok, message, data = pcall(handler, player, payload)
+		if not success then
+			warn("[RequestRouter] Erreur dans " .. action .. " : " .. tostring(ok))
+			return { ok = false, message = "Erreur serveur" }
+		end
+		return { ok = ok and true or false, message = message, data = data }
+	end
+
+	game:GetService("Players").PlayerRemoving:Connect(function(player)
+		lastRequest[player] = nil
+	end)
+end
+
+return RequestRouter
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX24"><Properties><string name="Name">ShopService</string><ProtectedString name="Source"><![CDATA[--[[
+	ShopService (ModuleScript)
+	Emplacement : ServerScriptService > Services > ShopService
+
+	Boutique : achat / équipement des épées et des effets d'attaque (cosmétiques).
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local SwordConfig = require(ReplicatedStorage.Config.SwordConfig)
+local EffectConfig = require(ReplicatedStorage.Config.EffectConfig)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local DataService = require(ServerScriptService.Services.DataService)
+local PlayerService = require(ServerScriptService.Services.PlayerService)
+local RequestRouter = require(ServerScriptService.Services.RequestRouter)
+local SwordBuilder = require(ServerScriptService.Builders.SwordBuilder)
+
+local ShopService = {}
+
+local function equipSword(player, profile, swordId)
+	profile.EquippedSword = swordId
+	if player.Character then
+		SwordBuilder.Attach(player.Character, swordId, profile.EquippedEffect)
+	end
+	PlayerService.Push(player)
+end
+
+local function equipEffect(player, profile, effectId)
+	profile.EquippedEffect = effectId or ""
+	if player.Character then
+		SwordBuilder.ApplyEffect(player.Character, profile.EquippedEffect)
+	end
+	PlayerService.Push(player)
+end
+
+function ShopService.Init()
+	RequestRouter.Register("BuySword", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local def = type(payload.id) == "string" and SwordConfig.Get(payload.id)
+		if not def then
+			return false, "Épée inconnue"
+		end
+		if table.find(profile.Swords, def.Id) then
+			return false, "Tu possèdes déjà cette épée"
+		end
+		if not PlayerService.SpendCash(player, def.Price) then
+			return false, "Pas assez d'argent (" .. Util.FormatNumber(def.Price) .. " $)"
+		end
+		table.insert(profile.Swords, def.Id)
+		equipSword(player, profile, def.Id)
+		return true, def.Name .. " achetée et équipée !"
+	end)
+
+	RequestRouter.Register("EquipSword", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local def = type(payload.id) == "string" and SwordConfig.Get(payload.id)
+		if not def or not table.find(profile.Swords, def.Id) then
+			return false, "Tu ne possèdes pas cette épée"
+		end
+		equipSword(player, profile, def.Id)
+		return true, def.Name .. " équipée"
+	end)
+
+	RequestRouter.Register("BuyEffect", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		local def = type(payload.id) == "string" and EffectConfig.Get(payload.id)
+		if not def then
+			return false, "Effet inconnu"
+		end
+		if table.find(profile.Effects, def.Id) then
+			return false, "Tu possèdes déjà cet effet"
+		end
+		if not PlayerService.SpendCash(player, def.Price) then
+			return false, "Pas assez d'argent (" .. Util.FormatNumber(def.Price) .. " $)"
+		end
+		table.insert(profile.Effects, def.Id)
+		equipEffect(player, profile, def.Id)
+		return true, "Effet " .. def.Name .. " acheté et équipé (cosmétique)"
+	end)
+
+	-- id = "" ou absent pour retirer l'effet
+	RequestRouter.Register("EquipEffect", function(player, payload)
+		local profile = DataService.Get(player)
+		if not profile then
+			return false, "Profil non chargé"
+		end
+		if payload.id == nil or payload.id == "" then
+			equipEffect(player, profile, "")
+			return true, "Effet retiré"
+		end
+		local def = type(payload.id) == "string" and EffectConfig.Get(payload.id)
+		if not def or not table.find(profile.Effects, def.Id) then
+			return false, "Tu ne possèdes pas cet effet"
+		end
+		equipEffect(player, profile, def.Id)
+		return true, "Effet " .. def.Name .. " équipé"
+	end)
+end
+
+return ShopService
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX25"><Properties><string name="Name">SlimeService</string><ProtectedString name="Source"><![CDATA[--[[
+	SlimeService (ModuleScript)
+	Emplacement : ServerScriptService > Services > SlimeService
+
+	Fait apparaître les slimes dans leurs zones, les fait sautiller, gère leurs
+	points de vie, leur mort, la répartition des récompenses et la réapparition.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local SlimeConfig = require(ReplicatedStorage.Config.SlimeConfig)
+local DataService = require(ServerScriptService.Services.DataService)
+local PlayerService = require(ServerScriptService.Services.PlayerService)
+local SlimeBuilder = require(ServerScriptService.Builders.SlimeBuilder)
+
+local SlimeService = {}
+
+local slimesFolder = workspace:WaitForChild("Slimes")
+local states = {} -- [model] = state
+local random = Random.new()
+
+local function groundHeight(def)
+	return SlimeBuilder.GetBodySize(def).Y / 2 + 0.05
+end
+
+local spawnSlime -- défini plus bas
+
+-- Un saut vers un point aléatoire de la zone
+local function hop(state)
+	state.Hopping = true
+	local def = state.Def
+	local model = state.Model
+	local startPosition = model:GetPivot().Position
+
+	local angle = random:NextNumber(0, math.pi * 2)
+	local distance = random:NextNumber(def.Size * 0.6, def.Size * 1.6)
+	local target = startPosition + Vector3.new(math.cos(angle), 0, math.sin(angle)) * distance
+	-- Reste dans la zone
+	local fromHome = Vector3.new(target.X - state.Home.X, 0, target.Z - state.Home.Z)
+	if fromHome.Magnitude > def.WanderRadius then
+		target = state.Home + fromHome.Unit * def.WanderRadius * 0.9
+	end
+	target = Vector3.new(target.X, groundHeight(def), target.Z)
+
+	local flat = Vector3.new(target.X - startPosition.X, 0, target.Z - startPosition.Z)
+	local rotation = model:GetPivot().Rotation
+	if flat.Magnitude > 0.05 then
+		rotation = CFrame.lookAt(Vector3.zero, flat).Rotation
+	end
+
+	local duration = 0.5
+	local startTime = os.clock()
+	while state.Alive and model.Parent do
+		local progress = math.min((os.clock() - startTime) / duration, 1)
+		local position = startPosition:Lerp(target, progress) + Vector3.new(0, math.sin(progress * math.pi) * def.Size * 0.45, 0)
+		model:PivotTo(CFrame.new(position) * rotation)
+		if progress >= 1 then
+			break
+		end
+		RunService.Heartbeat:Wait()
+	end
+	state.NextHop = os.clock() + def.HopInterval * random:NextNumber(0.7, 1.4)
+	state.Hopping = false
+end
+
+-- Mort : récompenses réparties selon les dégâts de chacun, puis réapparition
+local function kill(state)
+	if not state.Alive then
+		return
+	end
+	state.Alive = false -- empêche toute double récompense
+	local model = state.Model
+	local def = state.Def
+	model:SetAttribute("Alive", false)
+	states[model] = nil
+
+	local totalDamage = 0
+	for _, damage in pairs(state.Damage) do
+		totalDamage = totalDamage + damage
+	end
+	if totalDamage > 0 then
+		for userId, damage in pairs(state.Damage) do
+			local player = Players:GetPlayerByUserId(userId)
+			if player then
+				local share = math.max(1, math.floor(def.Reward * damage / totalDamage + 0.5))
+				local profile = DataService.Get(player)
+				if profile then
+					profile.Kills = profile.Kills + 1
+				end
+				PlayerService.AddCash(player, share, true)
+			end
+		end
+	end
+
+	task.spawn(function()
+		SlimeBuilder.PlayDeath(model)
+		model:Destroy()
+		task.delay(def.RespawnTime, function()
+			spawnSlime(def, state.Home)
+		end)
+	end)
+end
+
+-- Applique des dégâts. Retourne true si le coup a compté.
+function SlimeService.ApplyDamage(state, player, amount)
+	if not state or not state.Alive or amount <= 0 then
+		return false
+	end
+	local dealt = math.min(amount, state.Health)
+	state.Health = state.Health - dealt
+	state.Damage[player.UserId] = (state.Damage[player.UserId] or 0) + dealt
+
+	local model = state.Model
+	model:SetAttribute("Health", math.max(0, state.Health))
+	SlimeBuilder.UpdateHealth(model, state.Health, state.Def.Health)
+	if state.Health <= 0 then
+		kill(state)
+	else
+		SlimeBuilder.PlayHit(model, state.Def)
+	end
+	return true
+end
+
+spawnSlime = function(def, home)
+	local model = SlimeBuilder.Build(def)
+	local state = {
+		Model = model,
+		Def = def,
+		Home = home,
+		Health = def.Health,
+		Damage = {}, -- [userId] = dégâts infligés
+		Alive = true,
+		Hopping = false,
+		NextHop = os.clock() + random:NextNumber(0.5, def.HopInterval),
+	}
+	model:PivotTo(CFrame.new(home.X, groundHeight(def), home.Z) * CFrame.Angles(0, random:NextNumber(0, math.pi * 2), 0))
+	model.Parent = slimesFolder
+	states[model] = state
+	return state
+end
+
+function SlimeService.GetState(model)
+	return states[model]
+end
+
+-- Slime vivant le plus proche d'une position, dans une portée donnée
+function SlimeService.GetNearest(position, range)
+	local best, bestDistance = nil, range
+	for _, state in pairs(states) do
+		if state.Alive and state.Model.Parent then
+			local distance = (state.Model:GetPivot().Position - position).Magnitude - state.Def.Size / 2
+			if distance <= bestDistance then
+				best = state
+				bestDistance = distance
+			end
+		end
+	end
+	return best
+end
+
+function SlimeService.Init()
+	for _, def in ipairs(SlimeConfig.List) do
+		for i = 1, def.Count do
+			local angle = (i / def.Count) * math.pi * 2
+			local radius = def.Count == 1 and 0 or def.ZoneRadius * 0.5
+			local home = def.ZonePosition + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+			spawnSlime(def, home)
+		end
+	end
+
+	-- Déclenche les sauts
+	RunService.Heartbeat:Connect(function()
+		local now = os.clock()
+		for _, state in pairs(states) do
+			if state.Alive and not state.Hopping and now >= state.NextHop then
+				task.spawn(hop, state)
+			end
+		end
+	end)
+end
+
+return SlimeService
+]]></ProtectedString></Properties></Item></Item><Item class="Script" referent="RBX27"><Properties><string name="Name">Main</string><bool name="Disabled">false</bool><ProtectedString name="Source"><![CDATA[--[[
+	Main (Script)
+	Emplacement : ServerScriptService > Main
+
+	Point d'entrée du serveur : crée les dossiers, génère la map,
+	puis démarre tous les services dans le bon ordre.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+Remotes.Init()
+
+-- Dossiers du Workspace utilisés par le jeu
+local function ensureFolder(name)
+	local folder = workspace:FindFirstChild(name)
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = name
+		folder.Parent = workspace
+	end
+	return folder
+end
+ensureFolder("ConveyorEggs")
+ensureFolder("Slimes")
+ensureFolder("Companions")
+
+-- Décor
+require(ServerScriptService.Builders.MapBuilder).Build()
+
+-- Services (l'ordre compte : les dépendances d'abord)
+local Services = ServerScriptService.Services
+require(Services.DataService).Init()
+require(Services.RequestRouter).Init()
+require(Services.PlayerService).Init()
+require(Services.InventoryService).Init()
+require(Services.ShopService).Init()
+require(Services.SlimeService).Init()
+require(Services.CombatService).Init()
+require(Services.ConveyorService).Init()
+
+print("[SlimeEggs] Serveur prêt ✔")
+]]></ProtectedString></Properties></Item></roblox>

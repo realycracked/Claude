@@ -1,0 +1,1128 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><External>null</External><External>nil</External><Item class="Folder" referent="RBX7"><Properties><string name="Name">Config</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">EffectConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	EffectConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > EffectConfig
+
+	Effets d'attaque (traînée de l'épée + impact sur le slime).
+	100 % COSMÉTIQUES : aucun bonus de dégâts.
+]]
+
+local EffectConfig = {}
+
+local function sequence(colors)
+	local keypoints = {}
+	for index, color in ipairs(colors) do
+		local time = (index - 1) / math.max(1, #colors - 1)
+		table.insert(keypoints, ColorSequenceKeypoint.new(time, color))
+	end
+	return ColorSequence.new(keypoints)
+end
+
+EffectConfig.Description = "Effet purement cosmétique : ne change pas les dégâts."
+
+EffectConfig.List = {
+	{
+		Id = "Fire",
+		Name = "Feu",
+		Icon = "🔥",
+		Price = 500,
+		TrailColor = sequence({ Color3.fromRGB(255, 200, 60), Color3.fromRGB(255, 110, 0), Color3.fromRGB(200, 30, 0) }),
+		ImpactColor = Color3.fromRGB(255, 120, 20),
+		LightColor = Color3.fromRGB(255, 120, 20),
+		LightBrightness = 2,
+		ParticleSize = 0.9,
+		ParticleSpeed = 8,
+		ParticleLifetime = 0.5,
+		Rainbow = false,
+	},
+	{
+		Id = "Ice",
+		Name = "Glace",
+		Icon = "❄️",
+		Price = 1500,
+		TrailColor = sequence({ Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 230, 255), Color3.fromRGB(60, 160, 255) }),
+		ImpactColor = Color3.fromRGB(170, 235, 255),
+		LightColor = Color3.fromRGB(150, 220, 255),
+		LightBrightness = 1.5,
+		ParticleSize = 0.7,
+		ParticleSpeed = 4,
+		ParticleLifetime = 0.9,
+		Rainbow = false,
+	},
+	{
+		Id = "Lightning",
+		Name = "Éclairs",
+		Icon = "⚡",
+		Price = 5000,
+		TrailColor = sequence({ Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 255, 120), Color3.fromRGB(255, 220, 0) }),
+		ImpactColor = Color3.fromRGB(255, 255, 140),
+		LightColor = Color3.fromRGB(255, 255, 160),
+		LightBrightness = 4,
+		ParticleSize = 0.5,
+		ParticleSpeed = 18,
+		ParticleLifetime = 0.3,
+		Rainbow = false,
+	},
+	{
+		Id = "Shadow",
+		Name = "Ombres",
+		Icon = "🌑",
+		Price = 15000,
+		TrailColor = sequence({ Color3.fromRGB(120, 0, 180), Color3.fromRGB(50, 0, 80), Color3.fromRGB(10, 0, 15) }),
+		ImpactColor = Color3.fromRGB(90, 0, 140),
+		LightColor = Color3.fromRGB(120, 0, 180),
+		LightBrightness = 1,
+		ParticleSize = 1.3,
+		ParticleSpeed = 3,
+		ParticleLifetime = 1.1,
+		Rainbow = false,
+	},
+	{
+		Id = "Light",
+		Name = "Lumière",
+		Icon = "✨",
+		Price = 50000,
+		TrailColor = sequence({ Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 250, 200), Color3.fromRGB(255, 220, 100) }),
+		ImpactColor = Color3.fromRGB(255, 245, 190),
+		LightColor = Color3.fromRGB(255, 240, 180),
+		LightBrightness = 6,
+		ParticleSize = 1.0,
+		ParticleSpeed = 10,
+		ParticleLifetime = 0.7,
+		Rainbow = false,
+	},
+	{
+		Id = "Rainbow",
+		Name = "Arc-en-ciel",
+		Icon = "🌈",
+		Price = 150000,
+		TrailColor = sequence({
+			Color3.fromRGB(255, 0, 0),
+			Color3.fromRGB(255, 170, 0),
+			Color3.fromRGB(255, 255, 0),
+			Color3.fromRGB(0, 255, 80),
+			Color3.fromRGB(0, 150, 255),
+			Color3.fromRGB(170, 0, 255),
+		}),
+		ImpactColor = Color3.fromRGB(255, 255, 255),
+		LightColor = Color3.fromRGB(255, 255, 255),
+		LightBrightness = 3,
+		ParticleSize = 1.0,
+		ParticleSpeed = 12,
+		ParticleLifetime = 0.8,
+		Rainbow = true, -- la couleur tourne avec le temps
+	},
+}
+
+local byId = {}
+for index, def in ipairs(EffectConfig.List) do
+	def.Index = index
+	byId[def.Id] = def
+end
+
+function EffectConfig.Get(id)
+	if id == nil or id == "" then
+		return nil
+	end
+	return byId[id]
+end
+
+return EffectConfig
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX2"><Properties><string name="Name">EggConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	EggConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > EggConfig
+
+	Les 6 raretés d'œufs et leurs variantes (Normal, Argent, Or).
+	- Price : prix sur le tapis
+	- Weight : probabilité relative d'apparition (la somme fait 100 ici)
+	- DPS : dégâts par seconde ajoutés quand l'œuf est équipé
+	- AttackInterval : secondes entre deux attaques de l'œuf
+	  (dégâts par attaque = DPS x AttackInterval, calculé dans CombatMath)
+]]
+
+local EggConfig = {}
+
+EggConfig.Rarities = {
+	{
+		Id = "Common",
+		Name = "Commun",
+		Price = 10,
+		Weight = 50,
+		DPS = 1,
+		AttackInterval = 1.2,
+		Color = Color3.fromRGB(236, 224, 196),
+		SpotColor = Color3.fromRGB(200, 185, 150),
+		Material = Enum.Material.SmoothPlastic,
+		Spots = 0,
+		Glow = false,
+		Sparkles = false,
+		Aura = false,
+	},
+	{
+		Id = "Uncommon",
+		Name = "Peu commun",
+		Price = 50,
+		Weight = 28,
+		DPS = 3,
+		AttackInterval = 1.1,
+		Color = Color3.fromRGB(120, 210, 110),
+		SpotColor = Color3.fromRGB(50, 140, 60),
+		Material = Enum.Material.SmoothPlastic,
+		Spots = 4,
+		Glow = false,
+		Sparkles = false,
+		Aura = false,
+	},
+	{
+		Id = "Rare",
+		Name = "Rare",
+		Price = 250,
+		Weight = 13,
+		DPS = 10,
+		AttackInterval = 1.0,
+		Color = Color3.fromRGB(70, 140, 255),
+		SpotColor = Color3.fromRGB(190, 235, 255),
+		Material = Enum.Material.SmoothPlastic,
+		Spots = 6,
+		Glow = true,
+		Sparkles = false,
+		Aura = false,
+	},
+	{
+		Id = "Epic",
+		Name = "Épique",
+		Price = 1500,
+		Weight = 6,
+		DPS = 35,
+		AttackInterval = 0.9,
+		Color = Color3.fromRGB(160, 70, 230),
+		SpotColor = Color3.fromRGB(255, 120, 255),
+		Material = Enum.Material.Glass,
+		Spots = 7,
+		Glow = true,
+		Sparkles = false,
+		Aura = false,
+	},
+	{
+		Id = "Legendary",
+		Name = "Légendaire",
+		Price = 10000,
+		Weight = 2.5,
+		DPS = 120,
+		AttackInterval = 0.8,
+		Color = Color3.fromRGB(255, 170, 30),
+		SpotColor = Color3.fromRGB(255, 245, 140),
+		Material = Enum.Material.Metal,
+		Spots = 8,
+		Glow = true,
+		Sparkles = true,
+		Aura = false,
+	},
+	{
+		Id = "Mythic",
+		Name = "Mythique",
+		Price = 75000,
+		Weight = 0.5,
+		DPS = 450,
+		AttackInterval = 0.7,
+		Color = Color3.fromRGB(45, 10, 65),
+		SpotColor = Color3.fromRGB(255, 40, 130),
+		Material = Enum.Material.SmoothPlastic,
+		Spots = 10,
+		Glow = true,
+		Sparkles = true,
+		Aura = true,
+	},
+}
+
+-- Variantes : Normal (sans nom), Argent, Or
+EggConfig.Variants = {
+	{ Id = "Normal", Name = "", Weight = 85, PriceMult = 1, PowerMult = 1, Tint = nil, Material = nil, Sparkles = false, LabelColor = Color3.fromRGB(255, 255, 255) },
+	{ Id = "Silver", Name = "Argent", Weight = 12, PriceMult = 2, PowerMult = 1.5, Tint = Color3.fromRGB(215, 215, 225), Material = Enum.Material.Metal, Sparkles = false, LabelColor = Color3.fromRGB(220, 220, 235) },
+	{ Id = "Gold", Name = "Or", Weight = 3, PriceMult = 4, PowerMult = 2.5, Tint = Color3.fromRGB(255, 215, 0), Material = Enum.Material.Metal, Sparkles = true, LabelColor = Color3.fromRGB(255, 220, 60) },
+}
+
+local rarityById = {}
+for index, rarity in ipairs(EggConfig.Rarities) do
+	rarity.Index = index
+	rarityById[rarity.Id] = rarity
+end
+
+local variantById = {}
+for index, variant in ipairs(EggConfig.Variants) do
+	variant.Index = index
+	variantById[variant.Id] = variant
+end
+
+function EggConfig.GetRarity(rarityId)
+	return rarityById[rarityId]
+end
+
+function EggConfig.GetVariant(variantId)
+	return variantById[variantId or "Normal"] or variantById.Normal
+end
+
+-- Prix d'achat d'un œuf (rareté + variante)
+function EggConfig.GetPrice(rarityId, variantId)
+	local rarity = EggConfig.GetRarity(rarityId)
+	local variant = EggConfig.GetVariant(variantId)
+	if not rarity then
+		return 0
+	end
+	return math.floor(rarity.Price * variant.PriceMult)
+end
+
+-- DPS apporté par un œuf équipé
+function EggConfig.GetDPS(rarityId, variantId)
+	local rarity = EggConfig.GetRarity(rarityId)
+	local variant = EggConfig.GetVariant(variantId)
+	if not rarity then
+		return 0
+	end
+	return rarity.DPS * variant.PowerMult
+end
+
+-- Nom affiché : "Œuf Rare Argent"
+function EggConfig.GetDisplayName(rarityId, variantId)
+	local rarity = EggConfig.GetRarity(rarityId)
+	local variant = EggConfig.GetVariant(variantId)
+	if not rarity then
+		return "Œuf inconnu"
+	end
+	local name = "Œuf " .. rarity.Name
+	if variant.Name ~= "" then
+		name = name .. " " .. variant.Name
+	end
+	return name
+end
+
+-- Clé utilisée par l'Index (collection) : "Rare_Silver"
+function EggConfig.GetIndexKey(rarityId, variantId)
+	return rarityId .. "_" .. (variantId or "Normal")
+end
+
+local function weightedRoll(list, random)
+	local total = 0
+	for _, entry in ipairs(list) do
+		total = total + entry.Weight
+	end
+	local roll = random:NextNumber() * total
+	for _, entry in ipairs(list) do
+		roll = roll - entry.Weight
+		if roll <= 0 then
+			return entry
+		end
+	end
+	return list[#list]
+end
+
+function EggConfig.RollRarity(random)
+	return weightedRoll(EggConfig.Rarities, random)
+end
+
+function EggConfig.RollVariant(random)
+	return weightedRoll(EggConfig.Variants, random)
+end
+
+return EggConfig
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX3"><Properties><string name="Name">GameConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	GameConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > GameConfig
+
+	Réglages généraux du jeu. Tout ce qui concerne le tapis roulant,
+	le combat, la vente, les compagnons et la sauvegarde se règle ici.
+]]
+
+local GameConfig = {}
+
+-- Argent de départ d'un nouveau joueur
+GameConfig.StartCash = 0
+
+-- Point d'apparition (le bouton Home ramène ici)
+GameConfig.SpawnPosition = Vector3.new(0, 3, 55)
+
+-- Tapis roulant
+GameConfig.Conveyor = {
+	Center = Vector3.new(0, 0, 25), -- centre du tapis (au niveau du sol)
+	Direction = Vector3.new(1, 0, 0), -- sens de défilement des œufs
+	Length = 70, -- longueur du tapis (studs)
+	Width = 8, -- largeur du tapis
+	BeltHeight = 1, -- épaisseur du tapis
+	Speed = 5, -- vitesse des œufs (studs / seconde)
+	SpawnInterval = 3, -- un nouvel œuf toutes les X secondes
+	MaxEggs = 8, -- nombre maximum d'œufs sur le tapis
+	BuyDistance = 12, -- distance maximale pour acheter (studs)
+	EggScale = 1, -- taille des œufs sur le tapis
+}
+
+-- Combat
+GameConfig.Combat = {
+	CompanionRange = 28, -- portée des œufs équipés autour du joueur
+	CombatTimeout = 8, -- les œufs attaquent pendant X s après le dernier coup du joueur
+	CooldownTolerance = 0.75, -- tolérance réseau sur la cadence (0.75 = 25 % de marge)
+	DistanceTolerance = 6, -- tolérance réseau sur la portée (studs)
+}
+
+-- Vente des œufs
+GameConfig.Sell = {
+	RefundRatio = 0.5, -- un œuf se revend 50 % de son prix
+}
+
+-- Compagnons (œufs équipés qui suivent le joueur)
+GameConfig.Companion = {
+	Scale = 0.55, -- taille des œufs compagnons
+	BobHeight = 0.35, -- amplitude du flottement
+	BobSpeed = 2.2, -- vitesse du flottement
+	FollowSpeed = 7, -- réactivité du suivi (plus grand = plus rapide)
+	-- Position de chaque emplacement par rapport au joueur (x = côté, y = hauteur, z = derrière)
+	Offsets = {
+		Vector3.new(-3, 1.5, 3),
+		Vector3.new(3, 1.5, 3),
+		Vector3.new(0, 2.2, 5.5),
+		Vector3.new(-5, 1.5, 5.5),
+		Vector3.new(5, 1.5, 5.5),
+		Vector3.new(0, 3, 8),
+	},
+}
+
+-- Sauvegarde
+GameConfig.Data = {
+	StoreName = "SlimeEggs_v1", -- changer ce nom remet toutes les sauvegardes à zéro
+	AutosaveInterval = 120, -- sauvegarde automatique toutes les X secondes
+	LoadRetries = 3,
+}
+
+return GameConfig
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">RankConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	RankConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > RankConfig
+
+	Paliers de progression. Le rang dépend de l'argent TOTAL gagné en combat
+	(les ventes d'œufs ne comptent pas). Chaque rang fixe le nombre
+	maximum d'œufs équipés.
+]]
+
+local RankConfig = {}
+
+RankConfig.List = {
+	{ Id = 1, Name = "Débutant", Required = 0, MaxEquipped = 3, Color = Color3.fromRGB(200, 200, 200) },
+	{ Id = 2, Name = "Chasseur", Required = 500, MaxEquipped = 3, Color = Color3.fromRGB(120, 220, 120) },
+	{ Id = 3, Name = "Guerrier", Required = 5000, MaxEquipped = 4, Color = Color3.fromRGB(90, 160, 255) },
+	{ Id = 4, Name = "Champion", Required = 50000, MaxEquipped = 4, Color = Color3.fromRGB(190, 90, 255) },
+	{ Id = 5, Name = "Légende", Required = 500000, MaxEquipped = 5, Color = Color3.fromRGB(255, 180, 40) },
+	{ Id = 6, Name = "Mythe", Required = 5000000, MaxEquipped = 6, Color = Color3.fromRGB(255, 70, 160) },
+}
+
+-- Retourne l'index du rang et sa définition
+function RankConfig.GetRank(totalEarned)
+	local current = RankConfig.List[1]
+	for _, rank in ipairs(RankConfig.List) do
+		if (totalEarned or 0) >= rank.Required then
+			current = rank
+		end
+	end
+	return current.Id, current
+end
+
+function RankConfig.GetMaxEquipped(totalEarned)
+	local _, rank = RankConfig.GetRank(totalEarned)
+	return rank.MaxEquipped
+end
+
+-- Prochain rang (nil si déjà au maximum)
+function RankConfig.GetNextRank(totalEarned)
+	local id = RankConfig.GetRank(totalEarned)
+	return RankConfig.List[id + 1]
+end
+
+return RankConfig
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">SlimeConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	SlimeConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > SlimeConfig
+
+	Les 6 catégories de slimes. Chaque catégorie possède sa propre zone sur la map.
+	- Health : points de vie
+	- Reward : argent donné à la mort (réparti selon les dégâts de chacun)
+	- Size : diamètre du slime (studs)
+	- Count : nombre de slimes dans la zone
+	- RespawnTime : secondes avant réapparition
+	- ZonePosition / ZoneRadius : emplacement de la zone sur la map
+]]
+
+local SlimeConfig = {}
+
+SlimeConfig.List = {
+	{
+		Id = "Weak",
+		Name = "Slime faible",
+		Health = 20,
+		Reward = 3,
+		Size = 3,
+		Color = Color3.fromRGB(170, 240, 120),
+		EyeColor = Color3.fromRGB(20, 20, 20),
+		Count = 5,
+		RespawnTime = 4,
+		HopInterval = 2.5,
+		WanderRadius = 12,
+		ZonePosition = Vector3.new(0, 0, -30),
+		ZoneRadius = 22,
+	},
+	{
+		Id = "Basic",
+		Name = "Slime basique",
+		Health = 100,
+		Reward = 12,
+		Size = 4,
+		Color = Color3.fromRGB(80, 200, 80),
+		EyeColor = Color3.fromRGB(20, 20, 20),
+		Count = 5,
+		RespawnTime = 5,
+		HopInterval = 2.5,
+		WanderRadius = 13,
+		ZonePosition = Vector3.new(0, 0, -95),
+		ZoneRadius = 24,
+	},
+	{
+		Id = "Hard",
+		Name = "Slime difficile",
+		Health = 600,
+		Reward = 60,
+		Size = 5,
+		Color = Color3.fromRGB(70, 140, 255),
+		EyeColor = Color3.fromRGB(20, 20, 20),
+		Count = 4,
+		RespawnTime = 7,
+		HopInterval = 2.2,
+		WanderRadius = 14,
+		ZonePosition = Vector3.new(0, 0, -160),
+		ZoneRadius = 26,
+	},
+	{
+		Id = "VeryHard",
+		Name = "Slime très difficile",
+		Health = 4000,
+		Reward = 350,
+		Size = 6.5,
+		Color = Color3.fromRGB(160, 70, 230),
+		EyeColor = Color3.fromRGB(255, 255, 255),
+		Count = 4,
+		RespawnTime = 10,
+		HopInterval = 2.2,
+		WanderRadius = 15,
+		ZonePosition = Vector3.new(0, 0, -230),
+		ZoneRadius = 28,
+	},
+	{
+		Id = "Mega",
+		Name = "Slime méga difficile",
+		Health = 30000,
+		Reward = 2200,
+		Size = 8,
+		Color = Color3.fromRGB(255, 90, 60),
+		EyeColor = Color3.fromRGB(255, 230, 80),
+		Count = 3,
+		RespawnTime = 15,
+		HopInterval = 2,
+		WanderRadius = 16,
+		ZonePosition = Vector3.new(0, 0, -305),
+		ZoneRadius = 30,
+	},
+	{
+		Id = "Boss",
+		Name = "Boss Slime",
+		Health = 250000,
+		Reward = 15000,
+		Size = 13,
+		Color = Color3.fromRGB(45, 45, 60),
+		EyeColor = Color3.fromRGB(255, 200, 0),
+		Count = 1,
+		RespawnTime = 60,
+		HopInterval = 3,
+		WanderRadius = 12,
+		ZonePosition = Vector3.new(0, 0, -385),
+		ZoneRadius = 32,
+	},
+}
+
+local byId = {}
+for index, def in ipairs(SlimeConfig.List) do
+	def.Index = index
+	byId[def.Id] = def
+end
+
+function SlimeConfig.Get(id)
+	return byId[id]
+end
+
+return SlimeConfig
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">SwordConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	SwordConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > SwordConfig
+
+	Les 6 épées. Le joueur commence avec "Wood" (gratuite).
+	- DPS : dégâts par seconde de l'épée
+	  (la cadence dépend du palier de DPS total, voir CombatMath ;
+	   dégâts par coup = DPS x intervalle, donc le DPS est toujours respecté)
+	- Range : portée d'attaque (studs)
+]]
+
+local SwordConfig = {}
+
+SwordConfig.DefaultSword = "Wood"
+
+SwordConfig.List = {
+	{
+		Id = "Wood",
+		Name = "Épée en bois",
+		Price = 0,
+		DPS = 5,
+		Range = 10,
+		Style = {
+			BladeColor = Color3.fromRGB(165, 115, 60),
+			GuardColor = Color3.fromRGB(110, 70, 35),
+			GripColor = Color3.fromRGB(70, 45, 25),
+			Material = Enum.Material.Wood,
+			Length = 2.4,
+			Glow = nil,
+		},
+	},
+	{
+		Id = "Iron",
+		Name = "Épée en fer",
+		Price = 75,
+		DPS = 15,
+		Range = 10,
+		Style = {
+			BladeColor = Color3.fromRGB(190, 190, 200),
+			GuardColor = Color3.fromRGB(90, 90, 100),
+			GripColor = Color3.fromRGB(60, 40, 30),
+			Material = Enum.Material.Metal,
+			Length = 2.6,
+			Glow = nil,
+		},
+	},
+	{
+		Id = "Steel",
+		Name = "Épée en acier",
+		Price = 600,
+		DPS = 45,
+		Range = 11,
+		Style = {
+			BladeColor = Color3.fromRGB(225, 230, 240),
+			GuardColor = Color3.fromRGB(40, 60, 130),
+			GripColor = Color3.fromRGB(30, 30, 40),
+			Material = Enum.Material.Metal,
+			Length = 2.8,
+			Glow = nil,
+		},
+	},
+	{
+		Id = "Crystal",
+		Name = "Épée de cristal",
+		Price = 4500,
+		DPS = 150,
+		Range = 11,
+		Style = {
+			BladeColor = Color3.fromRGB(120, 220, 255),
+			GuardColor = Color3.fromRGB(60, 120, 200),
+			GripColor = Color3.fromRGB(30, 50, 90),
+			Material = Enum.Material.Glass,
+			Length = 3.0,
+			Glow = Color3.fromRGB(120, 220, 255),
+		},
+	},
+	{
+		Id = "Dragon",
+		Name = "Épée du dragon",
+		Price = 35000,
+		DPS = 500,
+		Range = 12,
+		Style = {
+			BladeColor = Color3.fromRGB(255, 90, 40),
+			GuardColor = Color3.fromRGB(120, 20, 20),
+			GripColor = Color3.fromRGB(40, 10, 10),
+			Material = Enum.Material.Metal,
+			Length = 3.3,
+			Glow = Color3.fromRGB(255, 120, 40),
+		},
+	},
+	{
+		Id = "Mythic",
+		Name = "Épée mythique",
+		Price = 280000,
+		DPS = 1800,
+		Range = 12,
+		Style = {
+			BladeColor = Color3.fromRGB(255, 60, 200),
+			GuardColor = Color3.fromRGB(40, 0, 60),
+			GripColor = Color3.fromRGB(20, 0, 30),
+			Material = Enum.Material.Neon,
+			Length = 3.6,
+			Glow = Color3.fromRGB(255, 80, 220),
+		},
+	},
+}
+
+local byId = {}
+for index, def in ipairs(SwordConfig.List) do
+	def.Index = index
+	byId[def.Id] = def
+end
+
+function SwordConfig.Get(id)
+	return byId[id]
+end
+
+return SwordConfig
+]]></ProtectedString></Properties></Item></Item><Item class="Folder" referent="RBX12"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">CombatMath</string><ProtectedString name="Source"><![CDATA[--[[
+	CombatMath (ModuleScript)
+	Emplacement : ReplicatedStorage > Shared > CombatMath
+
+	Calculs de combat partagés par le serveur ET le client.
+	Règle d'or : on part toujours du DPS, puis dégâts par coup = DPS x intervalle.
+	Le DPS n'est donc jamais multiplié deux fois.
+
+	Paliers (Tiers) : plus le DPS total du joueur est élevé, plus l'épée frappe vite
+	et plus les effets visuels sont impressionnants. L'intervalle minimum est 0.22 s
+	pour que les animations restent lisibles.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EggConfig = require(ReplicatedStorage.Config.EggConfig)
+local SwordConfig = require(ReplicatedStorage.Config.SwordConfig)
+
+local CombatMath = {}
+
+CombatMath.Tiers = {
+	{ MinDPS = 0, Interval = 0.60, Name = "Novice" },
+	{ MinDPS = 25, Interval = 0.50, Name = "Combattant" },
+	{ MinDPS = 120, Interval = 0.42, Name = "Vétéran" },
+	{ MinDPS = 600, Interval = 0.34, Name = "Maître" },
+	{ MinDPS = 2500, Interval = 0.27, Name = "Légende" },
+	{ MinDPS = 10000, Interval = 0.22, Name = "Mythique" }, -- vitesse maximale
+}
+
+-- Retrouve un œuf du profil par son identifiant
+function CombatMath.FindEgg(profile, eggId)
+	for _, item in ipairs(profile.Eggs) do
+		if item.Id == eggId then
+			return item
+		end
+	end
+	return nil
+end
+
+function CombatMath.GetEggItemDPS(item)
+	return EggConfig.GetDPS(item.Rarity, item.Variant)
+end
+
+-- Liste des œufs équipés (objets complets)
+function CombatMath.GetEquippedEggs(profile)
+	local list = {}
+	for _, eggId in ipairs(profile.Equipped) do
+		local item = CombatMath.FindEgg(profile, eggId)
+		if item then
+			table.insert(list, item)
+		end
+	end
+	return list
+end
+
+function CombatMath.GetEggsDPS(profile)
+	local total = 0
+	for _, item in ipairs(CombatMath.GetEquippedEggs(profile)) do
+		total = total + CombatMath.GetEggItemDPS(item)
+	end
+	return total
+end
+
+function CombatMath.GetSwordDPS(profile)
+	local sword = SwordConfig.Get(profile.EquippedSword) or SwordConfig.Get(SwordConfig.DefaultSword)
+	return sword.DPS
+end
+
+function CombatMath.GetTotalDPS(profile)
+	return CombatMath.GetSwordDPS(profile) + CombatMath.GetEggsDPS(profile)
+end
+
+-- Palier d'après le DPS total -> index, définition
+function CombatMath.GetTier(totalDPS)
+	local index = 1
+	for i, tier in ipairs(CombatMath.Tiers) do
+		if totalDPS >= tier.MinDPS then
+			index = i
+		end
+	end
+	return index, CombatMath.Tiers[index]
+end
+
+-- Attaque à l'épée : dégâts par coup, intervalle entre deux coups, palier
+function CombatMath.GetSwordAttack(profile)
+	local swordDPS = CombatMath.GetSwordDPS(profile)
+	local tierIndex, tier = CombatMath.GetTier(CombatMath.GetTotalDPS(profile))
+	local interval = tier.Interval
+	local damage = swordDPS * interval
+	return damage, interval, tierIndex
+end
+
+-- Attaque d'un œuf : dégâts par attaque, intervalle entre deux attaques
+function CombatMath.GetEggAttack(item)
+	local rarity = EggConfig.GetRarity(item.Rarity)
+	local interval = rarity and rarity.AttackInterval or 1
+	local damage = CombatMath.GetEggItemDPS(item) * interval
+	return damage, interval
+end
+
+return CombatMath
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">EggBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+	EggBuilder (ModuleScript)
+	Emplacement : ReplicatedStorage > Shared > EggBuilder
+
+	Construit un œuf en 3D à partir de blocs empilés (style géométrique de la photo).
+	Les détails (taches, lumière, particules, aura) dépendent de la rareté.
+	Utilisé pour les œufs du tapis ET pour les compagnons.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EggConfig = require(ReplicatedStorage.Config.EggConfig)
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local EggBuilder = {}
+
+-- Largeur de chaque couche, du bas vers le haut (forme d'œuf)
+local PROFILE = { 1.0, 1.6, 2.0, 2.2, 2.1, 1.7, 1.1 }
+local LAYER_HEIGHT = 0.4
+
+function EggBuilder.GetHeight(scale)
+	return #PROFILE * LAYER_HEIGHT * (scale or 1)
+end
+
+local function newPart(name, size, color, material, parent)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Color = color
+	part.Material = material
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+-- Construit le modèle. Le pivot (PrimaryPart "Hitbox") est au centre de l'œuf.
+function EggBuilder.Build(rarityId, variantId, scale)
+	scale = scale or 1
+	local rarity = EggConfig.GetRarity(rarityId) or EggConfig.Rarities[1]
+	local variant = EggConfig.GetVariant(variantId)
+
+	local bodyColor = rarity.Color
+	if variant.Tint then
+		bodyColor = bodyColor:Lerp(variant.Tint, 0.6)
+	end
+	local material = variant.Material or rarity.Material
+
+	local model = Instance.new("Model")
+	model.Name = "Egg"
+
+	local height = EggBuilder.GetHeight(scale)
+	local hitbox = newPart("Hitbox", Vector3.new(2.3 * scale, height, 2.3 * scale), bodyColor, Enum.Material.SmoothPlastic, model)
+	hitbox.Transparency = 1
+	hitbox.CanQuery = true
+	hitbox.CFrame = CFrame.new()
+	model.PrimaryPart = hitbox
+
+	-- Couches
+	local layerCenters = {}
+	local y = -height / 2
+	for index, width in ipairs(PROFILE) do
+		local layerColor = bodyColor
+		if index % 2 == 0 then
+			layerColor = bodyColor:Lerp(Color3.new(0, 0, 0), 0.07)
+		end
+		local layer = newPart("Layer" .. index, Vector3.new(width * scale, LAYER_HEIGHT * scale, width * scale), layerColor, material, model)
+		local centerY = y + LAYER_HEIGHT * scale / 2
+		layer.CFrame = CFrame.new(0, centerY, 0)
+		layerCenters[index] = centerY
+		y = y + LAYER_HEIGHT * scale
+	end
+
+	-- Taches (motifs) : positions identiques pour une même rareté/variante
+	local seed = rarity.Index * 100 + variant.Index
+	local rng = Random.new(seed)
+	for _ = 1, rarity.Spots do
+		local layerIndex = rng:NextInteger(2, #PROFILE - 1)
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local radius = PROFILE[layerIndex] * scale / 2
+		local spotSize = rng:NextNumber(0.25, 0.4) * scale
+		local spot = newPart("Spot", Vector3.new(spotSize, spotSize, spotSize), rarity.SpotColor, rarity.Glow and Enum.Material.Neon or material, model)
+		spot.CFrame = CFrame.new(math.cos(angle) * radius, layerCenters[layerIndex], math.sin(angle) * radius) * CFrame.Angles(0, -angle, 0)
+	end
+
+	-- Lumière
+	if rarity.Glow then
+		local light = Instance.new("PointLight")
+		light.Color = rarity.SpotColor
+		light.Range = 8 * scale
+		light.Brightness = 1.5
+		light.Parent = hitbox
+	end
+
+	-- Particules scintillantes
+	if rarity.Sparkles or variant.Sparkles then
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Name = "Sparkles"
+		emitter.Color = ColorSequence.new(variant.Tint or rarity.SpotColor)
+		emitter.LightEmission = 1
+		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25 * scale), NumberSequenceKeypoint.new(1, 0) })
+		emitter.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		emitter.Lifetime = NumberRange.new(0.8, 1.4)
+		emitter.Rate = 8
+		emitter.Speed = NumberRange.new(1, 2)
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.Parent = hitbox
+	end
+
+	-- Aura (sphère lumineuse translucide)
+	if rarity.Aura then
+		local aura = newPart("Aura", Vector3.new(3.2 * scale, 3.2 * scale, 3.2 * scale), rarity.SpotColor, Enum.Material.Neon, model)
+		aura.Shape = Enum.PartType.Ball
+		aura.Transparency = 0.8
+		aura.CFrame = CFrame.new()
+	end
+
+	model:SetAttribute("Rarity", rarity.Id)
+	model:SetAttribute("Variant", variant.Id)
+	return model
+end
+
+-- Étiquette au-dessus d'un œuf du tapis : nom, rareté, prix
+function EggBuilder.AddLabel(model, rarityId, variantId, price)
+	local rarity = EggConfig.GetRarity(rarityId)
+	local variant = EggConfig.GetVariant(variantId)
+	local hitbox = model.PrimaryPart
+	if not rarity or not hitbox then
+		return
+	end
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Label"
+	gui.Adornee = hitbox
+	gui.Size = UDim2.fromOffset(220, 100)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, hitbox.Size.Y / 2 + 2.2, 0)
+	gui.MaxDistance = 90
+	gui.LightInfluence = 0
+	gui.AlwaysOnTop = false
+
+	local function makeText(text, color, size, position)
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.new(1, 0, 0, size)
+		label.Position = position
+		label.Font = Enum.Font.FredokaOne
+		label.Text = text
+		label.TextColor3 = color
+		label.TextSize = size
+		label.TextScaled = false
+		label.Parent = gui
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 2
+		stroke.Color = Color3.new(0, 0, 0)
+		stroke.Parent = label
+		return label
+	end
+
+	makeText(EggConfig.GetDisplayName(rarityId, variantId), variant.LabelColor, 26, UDim2.fromOffset(0, 0))
+	makeText(rarity.Name, rarity.Id == "Mythic" and rarity.SpotColor or rarity.Color, 20, UDim2.fromOffset(0, 28))
+
+	-- Prix : icône billet + nombre vert
+	local priceRow = Instance.new("Frame")
+	priceRow.BackgroundTransparency = 1
+	priceRow.Size = UDim2.new(1, 0, 0, 34)
+	priceRow.Position = UDim2.fromOffset(0, 54)
+	priceRow.Parent = gui
+
+	local priceText = Util.FormatNumber(price)
+	local textWidth = #priceText * 16 + 10
+	local totalWidth = 34 + 6 + textWidth
+
+	local icon = Instance.new("Frame")
+	icon.Size = UDim2.fromOffset(34, 22)
+	icon.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -11)
+	icon.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
+	icon.BorderSizePixel = 0
+	icon.Parent = priceRow
+	local iconCorner = Instance.new("UICorner")
+	iconCorner.CornerRadius = UDim.new(0, 5)
+	iconCorner.Parent = icon
+	local iconStroke = Instance.new("UIStroke")
+	iconStroke.Thickness = 2
+	iconStroke.Color = Color3.fromRGB(20, 80, 20)
+	iconStroke.Parent = icon
+	local dollar = Instance.new("TextLabel")
+	dollar.BackgroundTransparency = 1
+	dollar.Size = UDim2.fromScale(1, 1)
+	dollar.Font = Enum.Font.FredokaOne
+	dollar.Text = "$"
+	dollar.TextColor3 = Color3.new(1, 1, 1)
+	dollar.TextSize = 18
+	dollar.Parent = icon
+
+	local priceLabel = Instance.new("TextLabel")
+	priceLabel.BackgroundTransparency = 1
+	priceLabel.Size = UDim2.fromOffset(textWidth, 34)
+	priceLabel.Position = UDim2.new(0.5, -totalWidth / 2 + 40, 0, 0)
+	priceLabel.Font = Enum.Font.FredokaOne
+	priceLabel.Text = priceText
+	priceLabel.TextColor3 = Color3.fromRGB(90, 230, 90)
+	priceLabel.TextSize = 30
+	priceLabel.TextXAlignment = Enum.TextXAlignment.Left
+	priceLabel.Parent = priceRow
+	local priceStroke = Instance.new("UIStroke")
+	priceStroke.Thickness = 2.5
+	priceStroke.Color = Color3.new(0, 0, 0)
+	priceStroke.Parent = priceLabel
+
+	gui.Parent = hitbox
+	return gui
+end
+
+return EggBuilder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--[[
+	Remotes (ModuleScript)
+	Emplacement : ReplicatedStorage > Shared > Remotes
+
+	Crée (côté serveur) et retrouve (des deux côtés) les RemoteEvents / RemoteFunctions.
+	Rien à créer à la main : le serveur fabrique le dossier ReplicatedStorage.Remotes au démarrage.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remotes = {}
+
+local FOLDER_NAME = "Remotes"
+
+-- Serveur -> client ou client -> serveur (sans réponse)
+local EVENTS = {
+	"ProfileUpdated", -- serveur -> client : nouvelle copie du profil (argent, œufs, ...)
+	"Attack", -- client -> serveur : le joueur frappe un slime
+	"AttackVFX", -- serveur -> tous : un joueur a touché un slime (animation + impact)
+	"CompanionAttack", -- serveur -> tous : un œuf compagnon a attaqué
+	"Notify", -- serveur -> client : message à afficher
+}
+
+-- Client -> serveur avec réponse
+local FUNCTIONS = {
+	"Request", -- toutes les actions (acheter, équiper, vendre, ...)
+}
+
+function Remotes.Init()
+	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = FOLDER_NAME
+		folder.Parent = ReplicatedStorage
+	end
+	for _, name in ipairs(EVENTS) do
+		if not folder:FindFirstChild(name) then
+			local event = Instance.new("RemoteEvent")
+			event.Name = name
+			event.Parent = folder
+		end
+	end
+	for _, name in ipairs(FUNCTIONS) do
+		if not folder:FindFirstChild(name) then
+			local func = Instance.new("RemoteFunction")
+			func.Name = name
+			func.Parent = folder
+		end
+	end
+end
+
+function Remotes.Get(name)
+	local folder = ReplicatedStorage:WaitForChild(FOLDER_NAME, 60)
+	if not folder then
+		error("Dossier Remotes introuvable : le script Main du serveur a-t-il démarré ?")
+	end
+	local remote = folder:WaitForChild(name, 60)
+	if not remote then
+		error("Remote introuvable : " .. tostring(name))
+	end
+	return remote
+end
+
+return Remotes
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
+	Util (ModuleScript)
+	Emplacement : ReplicatedStorage > Shared > Util
+
+	Petites fonctions utilitaires partagées.
+]]
+
+local Util = {}
+
+-- 1234567 -> "1 234 567"
+function Util.FormatNumber(value)
+	value = math.floor((tonumber(value) or 0) + 0.5)
+	local text = tostring(value)
+	local sign = ""
+	if value < 0 then
+		sign = "-"
+		text = text:sub(2)
+	end
+	local result = ""
+	while #text > 3 do
+		result = " " .. text:sub(-3) .. result
+		text = text:sub(1, -4)
+	end
+	return sign .. text .. result
+end
+
+-- 1234 -> "1.2k", 1500000 -> "1.5M" (pour les textes courts)
+function Util.FormatShort(value)
+	value = tonumber(value) or 0
+	if value >= 1e9 then
+		return string.format("%.1fB", value / 1e9)
+	elseif value >= 1e6 then
+		return string.format("%.1fM", value / 1e6)
+	elseif value >= 1e4 then
+		return string.format("%.1fk", value / 1e3)
+	end
+	return Util.FormatNumber(value)
+end
+
+-- Arrondi à N décimales (par défaut 1)
+function Util.Round(value, decimals)
+	local factor = 10 ^ (decimals or 1)
+	return math.floor(value * factor + 0.5) / factor
+end
+
+-- Copie profonde d'une table
+function Util.DeepCopy(source)
+	if type(source) ~= "table" then
+		return source
+	end
+	local copy = {}
+	for key, value in pairs(source) do
+		copy[key] = Util.DeepCopy(value)
+	end
+	return copy
+end
+
+-- Ajoute les clés manquantes d'après un modèle (utile pour les vieilles sauvegardes)
+function Util.Reconcile(data, template)
+	for key, value in pairs(template) do
+		if data[key] == nil then
+			data[key] = Util.DeepCopy(value)
+		elseif type(value) == "table" and type(data[key]) == "table" and #value == 0 and next(value) ~= nil then
+			Util.Reconcile(data[key], value)
+		end
+	end
+	return data
+end
+
+return Util
+]]></ProtectedString></Properties></Item></Item></roblox>
