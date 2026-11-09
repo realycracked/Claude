@@ -89,6 +89,24 @@ Rien d'autre n'est à créer : les dossiers `Workspace.Map`, `ConveyorEggs`, `Sl
 `Companions`, le dossier `ReplicatedStorage.Remotes` et l'interface `MainGui` sont
 fabriqués par les scripts au lancement.
 
+## Activer les icônes (images du dossier `assets/icons/`)
+
+Le projet fournit 18 icônes PNG (256×256, fond transparent) : sac, caddie, livre, graphique,
+maison, pièces, billet, épée, œuf, épées croisées, feu, glace, éclair, ombre, lumière,
+arc-en-ciel, étoile, fermer. Tant qu'elles ne sont pas uploadées, l'interface affiche des
+emoji à la place : le jeu fonctionne dans les deux cas.
+
+1. Studio → onglet **View** → **Asset Manager** → bouton **Bulk Import** → sélectionne tous les
+   PNG de `assets/icons/` (sauf `_planche.png`). Chaque image passe par la modération Roblox
+   (quelques minutes en général).
+2. Dans l'Asset Manager, dossier **Images** : clic droit sur une image → **Copy ID to clipboard**.
+3. Ouvre `ReplicatedStorage > Config > IconConfig` et colle chaque identifiant sous la forme
+   `rbxassetid://123456789` dans la table `Images` (une ligne par icône, le nom du fichier est
+   indiqué en commentaire).
+4. Relance le jeu : les boutons Home / Sell / Bag / Shop / Index / Ranks, le billet d'argent,
+   le bouton ATTAQUE, les cartes d'œufs (image teintée selon la rareté) et les effets utilisent
+   les images.
+
 ## Méthode C – Rojo (développeurs)
 
 `default.project.json` est fourni. Avec [Rojo](https://rojo.space) installé :

@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><External>null</External><External>nil</External><Item class="Folder" referent="RBX34"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX28"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[--[[
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><External>null</External><External>nil</External><Item class="Folder" referent="RBX35"><Properties><string name="Name">Controllers</string></Properties><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">ClientState</string><ProtectedString name="Source"><![CDATA[--[[
 	ClientState (ModuleScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > Controllers > ClientState
 
@@ -59,7 +59,7 @@ function ClientState.Init()
 end
 
 return ClientState
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX29"><Properties><string name="Name">CombatController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">CombatController</string><ProtectedString name="Source"><![CDATA[--[[
 	CombatController (ModuleScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > Controllers > CombatController
 
@@ -179,7 +179,7 @@ function CombatController.Init()
 end
 
 return CombatController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX30"><Properties><string name="Name">CombatVFX</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">CombatVFX</string><ProtectedString name="Source"><![CDATA[--[[
 	CombatVFX (ModuleScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > Controllers > CombatVFX
 
@@ -417,7 +417,7 @@ function CombatVFX.GetTierInterval(tierIndex)
 end
 
 return CombatVFX
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX31"><Properties><string name="Name">CompanionController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">CompanionController</string><ProtectedString name="Source"><![CDATA[--[[
 	CompanionController (ModuleScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > Controllers > CompanionController
 
@@ -502,7 +502,7 @@ function CompanionController.Init()
 end
 
 return CompanionController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX32"><Properties><string name="Name">ConveyorController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">ConveyorController</string><ProtectedString name="Source"><![CDATA[--[[
 	ConveyorController (ModuleScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > Controllers > ConveyorController
 
@@ -550,7 +550,7 @@ function ConveyorController.Init()
 end
 
 return ConveyorController
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX33"><Properties><string name="Name">UIController</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX34"><Properties><string name="Name">UIController</string><ProtectedString name="Source"><![CDATA[--[[
 	UIController (ModuleScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > Controllers > UIController
 
@@ -574,6 +574,7 @@ local EggConfig = require(ReplicatedStorage.Config.EggConfig)
 local SwordConfig = require(ReplicatedStorage.Config.SwordConfig)
 local EffectConfig = require(ReplicatedStorage.Config.EffectConfig)
 local RankConfig = require(ReplicatedStorage.Config.RankConfig)
+local IconConfig = require(ReplicatedStorage.Config.IconConfig)
 local CombatMath = require(ReplicatedStorage.Shared.CombatMath)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
@@ -666,6 +667,40 @@ local function label(parent, props, strokeThickness)
 	return inst
 end
 
+-- Icône : image (si l'identifiant est renseigné dans IconConfig) sinon emoji de secours
+local function icon(parent, name, props, tint)
+	props = props or {}
+	local size = props.Size or UDim2.fromOffset(48, 48)
+	local position = props.Position or UDim2.new()
+	local anchor = props.AnchorPoint or Vector2.new(0, 0)
+	local zIndex = props.ZIndex or 1
+	if IconConfig.HasImage(name) then
+		return create("ImageLabel", {
+			Name = "Icon_" .. name,
+			BackgroundTransparency = 1,
+			Image = IconConfig.GetImage(name),
+			ImageColor3 = tint or C.White,
+			ScaleType = Enum.ScaleType.Fit,
+			Size = size,
+			Position = position,
+			AnchorPoint = anchor,
+			ZIndex = zIndex,
+		}, parent)
+	end
+	local text = label(parent, {
+		Name = "Icon_" .. name,
+		Text = IconConfig.GetFallback(name),
+		Size = size,
+		Position = position,
+		AnchorPoint = anchor,
+		ZIndex = zIndex,
+	}, props.Stroke or 0)
+	if tint and name == "Egg" then
+		text.TextColor3 = tint
+	end
+	return text
+end
+
 -- Bouton coloré arrondi
 local function button(parent, props, onClick)
 	local color = props.Color or C.Green
@@ -736,11 +771,19 @@ local function buildHUD()
 		Position = UDim2.new(0.5, 0, 0, 10),
 		Size = UDim2.fromOffset(360, 60),
 	}, screenGui)
-	button(top, { Text = "Home", Color = C.Orange, DarkColor = C.OrangeDark, Size = UDim2.fromOffset(165, 58), Position = UDim2.fromOffset(0, 0), Radius = 14 }, function()
+	local function topButton(text, iconName, color, dark, x, onClick)
+		local btn = button(top, { Text = text, Color = color, DarkColor = dark, Size = UDim2.fromOffset(165, 58), Position = UDim2.fromOffset(x, 0), Radius = 14 }, onClick)
+		if IconConfig.HasImage(iconName) then
+			icon(btn, iconName, { Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(8, 6), ZIndex = 2 })
+			btn.TextXAlignment = Enum.TextXAlignment.Right
+		end
+		return btn
+	end
+	topButton("Home", "Home", C.Orange, C.OrangeDark, 0, function()
 		local result = ClientState.Request("GoHome")
 		UIController.Toast(result.message, result.ok and C.White or C.Red)
 	end)
-	button(top, { Text = "Sell", Color = C.Teal, DarkColor = C.TealDark, Size = UDim2.fromOffset(165, 58), Position = UDim2.fromOffset(195, 0), Radius = 14 }, function()
+	topButton("Sell", "Sell", C.Teal, C.TealDark, 195, function()
 		openPanel("Sell")
 	end)
 
@@ -752,10 +795,10 @@ local function buildHUD()
 		Size = UDim2.fromOffset(200, 200),
 	}, screenGui)
 	local entries = {
-		{ Name = "Bag", Icon = "🎒", Panel = "Bag", X = 0, Y = 0 },
-		{ Name = "Shop", Icon = "🛒", Panel = "Shop", X = 102, Y = 0 },
-		{ Name = "Index", Icon = "📖", Panel = "Index", X = 0, Y = 102 },
-		{ Name = "Ranks", Icon = "📈", Panel = "Ranks", X = 102, Y = 102 },
+		{ Name = "Bag", Panel = "Bag", X = 0, Y = 0 },
+		{ Name = "Shop", Panel = "Shop", X = 102, Y = 0 },
+		{ Name = "Index", Panel = "Index", X = 0, Y = 102 },
+		{ Name = "Ranks", Panel = "Ranks", X = 102, Y = 102 },
 	}
 	for _, entry in ipairs(entries) do
 		local btn = create("TextButton", {
@@ -770,8 +813,8 @@ local function buildHUD()
 		}, left)
 		corner(btn, 18)
 		create("UIStroke", { Thickness = 2, Color = C.White, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, btn)
-		label(btn, { Text = entry.Icon, Size = UDim2.new(1, 0, 0, 48), Position = UDim2.fromOffset(0, 6) }, 0)
-		label(btn, { Text = entry.Name, Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 60) }, 2)
+		icon(btn, entry.Name, { Size = UDim2.fromOffset(52, 52), Position = UDim2.new(0.5, -26, 0, 6) })
+		label(btn, { Text = entry.Name, Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 62) }, 2)
 		btn.MouseButton1Click:Connect(function()
 			openPanel(entry.Panel)
 		end)
@@ -785,17 +828,21 @@ local function buildHUD()
 		Position = UDim2.new(0, 18, 1, -70),
 		Size = UDim2.fromOffset(320, 56),
 	}, screenGui)
-	local bill = create("Frame", {
-		Size = UDim2.fromOffset(52, 34),
-		Position = UDim2.fromOffset(0, 11),
-		BackgroundColor3 = Color3.fromRGB(70, 200, 70),
-		BorderSizePixel = 0,
-	}, cashRow)
-	corner(bill, 7)
-	create("UIStroke", { Thickness = 3, Color = Color3.fromRGB(20, 80, 20), ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bill)
-	label(bill, { Text = "$", TextColor3 = C.White }, 1.5)
-	create("Frame", { Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(6, 6), BackgroundColor3 = Color3.fromRGB(30, 120, 30), BorderSizePixel = 0 }, bill)
-	create("Frame", { Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(40, 22), BackgroundColor3 = Color3.fromRGB(30, 120, 30), BorderSizePixel = 0 }, bill)
+	if IconConfig.HasImage("Cash") then
+		icon(cashRow, "Cash", { Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(0, 0) })
+	else
+		local bill = create("Frame", {
+			Size = UDim2.fromOffset(52, 34),
+			Position = UDim2.fromOffset(0, 11),
+			BackgroundColor3 = Color3.fromRGB(70, 200, 70),
+			BorderSizePixel = 0,
+		}, cashRow)
+		corner(bill, 7)
+		create("UIStroke", { Thickness = 3, Color = Color3.fromRGB(20, 80, 20), ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, bill)
+		label(bill, { Text = "$", TextColor3 = C.White }, 1.5)
+		create("Frame", { Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(6, 6), BackgroundColor3 = Color3.fromRGB(30, 120, 30), BorderSizePixel = 0 }, bill)
+		create("Frame", { Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(40, 22), BackgroundColor3 = Color3.fromRGB(30, 120, 30), BorderSizePixel = 0 }, bill)
+	end
 	cashLabel = label(cashRow, {
 		Text = "0",
 		TextColor3 = C.Cash,
@@ -815,7 +862,7 @@ local function buildHUD()
 	-- Mobile : bouton ATTAQUE
 	if UserInputService.TouchEnabled then
 		local attack = button(screenGui, {
-			Text = "⚔️\nATTAQUE",
+			Text = IconConfig.HasImage("Attack") and "" or "⚔️\nATTAQUE",
 			Color = C.Red,
 			DarkColor = C.RedDark,
 			Size = UDim2.fromOffset(120, 120),
@@ -824,6 +871,10 @@ local function buildHUD()
 			Radius = 60,
 		}, nil)
 		attack.AutoButtonColor = true
+		if IconConfig.HasImage("Attack") then
+			icon(attack, "Attack", { Size = UDim2.fromOffset(64, 64), Position = UDim2.new(0.5, -32, 0, 14), ZIndex = 2 })
+			label(attack, { Text = "ATTAQUE", Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 82), ZIndex = 2 }, 2)
+		end
 		attack.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 				CombatController.SetHolding(true)
@@ -1086,18 +1137,24 @@ local function eggCard(order, item, equipped)
 		create("UIStroke", { Thickness = 3, Color = C.Gold, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, card)
 	end
 
-	-- Aperçu : forme d'œuf colorée
-	local preview = create("Frame", {
-		Size = UDim2.fromOffset(80, 96),
-		Position = UDim2.new(0.5, -40, 0, 10),
-		BackgroundColor3 = variant.Tint and rarity.Color:Lerp(variant.Tint, 0.6) or rarity.Color,
-		BorderSizePixel = 0,
-		ZIndex = 13,
-	}, card)
-	corner(preview, 40)
-	create("UIStroke", { Thickness = 2, Color = rarity.SpotColor, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, preview)
+	-- Aperçu : image d'œuf teintée (ou forme colorée si l'image n'est pas renseignée)
+	local eggColor = variant.Tint and rarity.Color:Lerp(variant.Tint, 0.6) or rarity.Color
+	local preview
+	if IconConfig.HasImage("Egg") then
+		preview = icon(card, "Egg", { Size = UDim2.fromOffset(96, 96), Position = UDim2.new(0.5, -48, 0, 8), ZIndex = 13 }, eggColor)
+	else
+		preview = create("Frame", {
+			Size = UDim2.fromOffset(80, 96),
+			Position = UDim2.new(0.5, -40, 0, 10),
+			BackgroundColor3 = eggColor,
+			BorderSizePixel = 0,
+			ZIndex = 13,
+		}, card)
+		corner(preview, 40)
+		create("UIStroke", { Thickness = 2, Color = rarity.SpotColor, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, preview)
+	end
 	if variant.Name ~= "" then
-		label(preview, { Text = variant.Name, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 36), TextColor3 = variant.LabelColor, ZIndex = 14 }, 2)
+		label(preview, { Text = variant.Name, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 40), TextColor3 = variant.LabelColor, ZIndex = 14 }, 2)
 	end
 
 	local nameLabel = label(card, { Text = EggConfig.GetDisplayName(item.Rarity, item.Variant), Size = UDim2.new(1, -10, 0, 40), Position = UDim2.fromOffset(5, 110), TextWrapped = true, ZIndex = 13 }, 2)
@@ -1170,7 +1227,7 @@ local function effectSwatch(parent, effect)
 	local swatch = create("Frame", { Size = UDim2.fromOffset(64, 64), Position = UDim2.fromOffset(14, 16), BackgroundColor3 = C.White, BorderSizePixel = 0, ZIndex = 13 }, parent)
 	corner(swatch, 14)
 	create("UIGradient", { Color = effect.TrailColor, Rotation = 45 }, swatch)
-	label(swatch, { Text = effect.Icon, ZIndex = 14 }, 0)
+	icon(swatch, effect.Id, { Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(6, 6), ZIndex = 14 })
 	return swatch
 end
 
@@ -1540,7 +1597,7 @@ function UIController.Init()
 end
 
 return UIController
-]]></ProtectedString></Properties></Item></Item><Item class="LocalScript" referent="RBX35"><Properties><string name="Name">ClientMain</string><bool name="Disabled">false</bool><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item><Item class="LocalScript" referent="RBX36"><Properties><string name="Name">ClientMain</string><bool name="Disabled">false</bool><ProtectedString name="Source"><![CDATA[--[[
 	ClientMain (LocalScript)
 	Emplacement : StarterPlayer > StarterPlayerScripts > ClientMain
 

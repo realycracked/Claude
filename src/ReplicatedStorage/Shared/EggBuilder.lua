@@ -9,13 +9,14 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EggConfig = require(ReplicatedStorage.Config.EggConfig)
+local IconConfig = require(ReplicatedStorage.Config.IconConfig)
 local Util = require(ReplicatedStorage.Shared.Util)
 
 local EggBuilder = {}
 
 -- Largeur de chaque couche, du bas vers le haut (forme d'œuf)
-local PROFILE = { 1.0, 1.6, 2.0, 2.2, 2.1, 1.7, 1.1 }
-local LAYER_HEIGHT = 0.4
+local PROFILE = { 0.9, 1.5, 1.9, 2.15, 2.25, 2.2, 2.0, 1.6, 1.1 }
+local LAYER_HEIGHT = 0.32
 
 function EggBuilder.GetHeight(scale)
 	return #PROFILE * LAYER_HEIGHT * (scale or 1)
@@ -174,27 +175,37 @@ function EggBuilder.AddLabel(model, rarityId, variantId, price)
 	local textWidth = #priceText * 16 + 10
 	local totalWidth = 34 + 6 + textWidth
 
-	local icon = Instance.new("Frame")
-	icon.Size = UDim2.fromOffset(34, 22)
-	icon.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -11)
-	icon.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
-	icon.BorderSizePixel = 0
-	icon.Parent = priceRow
-	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0, 5)
-	iconCorner.Parent = icon
-	local iconStroke = Instance.new("UIStroke")
-	iconStroke.Thickness = 2
-	iconStroke.Color = Color3.fromRGB(20, 80, 20)
-	iconStroke.Parent = icon
-	local dollar = Instance.new("TextLabel")
-	dollar.BackgroundTransparency = 1
-	dollar.Size = UDim2.fromScale(1, 1)
-	dollar.Font = Enum.Font.FredokaOne
-	dollar.Text = "$"
-	dollar.TextColor3 = Color3.new(1, 1, 1)
-	dollar.TextSize = 18
-	dollar.Parent = icon
+	if IconConfig.HasImage("Cash") then
+		local image = Instance.new("ImageLabel")
+		image.BackgroundTransparency = 1
+		image.Image = IconConfig.GetImage("Cash")
+		image.ScaleType = Enum.ScaleType.Fit
+		image.Size = UDim2.fromOffset(34, 34)
+		image.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -17)
+		image.Parent = priceRow
+	else
+		local icon = Instance.new("Frame")
+		icon.Size = UDim2.fromOffset(34, 22)
+		icon.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -11)
+		icon.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
+		icon.BorderSizePixel = 0
+		icon.Parent = priceRow
+		local iconCorner = Instance.new("UICorner")
+		iconCorner.CornerRadius = UDim.new(0, 5)
+		iconCorner.Parent = icon
+		local iconStroke = Instance.new("UIStroke")
+		iconStroke.Thickness = 2
+		iconStroke.Color = Color3.fromRGB(20, 80, 20)
+		iconStroke.Parent = icon
+		local dollar = Instance.new("TextLabel")
+		dollar.BackgroundTransparency = 1
+		dollar.Size = UDim2.fromScale(1, 1)
+		dollar.Font = Enum.Font.FredokaOne
+		dollar.Text = "$"
+		dollar.TextColor3 = Color3.new(1, 1, 1)
+		dollar.TextSize = 18
+		dollar.Parent = icon
+	end
 
 	local priceLabel = Instance.new("TextLabel")
 	priceLabel.BackgroundTransparency = 1

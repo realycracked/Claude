@@ -1,4 +1,4 @@
-<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><External>null</External><External>nil</External><Item class="Folder" referent="RBX7"><Properties><string name="Name">Config</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">EffectConfig</string><ProtectedString name="Source"><![CDATA[--[[
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4"><Meta name="ExplicitAutoJoints">true</Meta><External>null</External><External>nil</External><Item class="Folder" referent="RBX8"><Properties><string name="Name">Config</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">EffectConfig</string><ProtectedString name="Source"><![CDATA[--[[
 	EffectConfig (ModuleScript)
 	Emplacement : ReplicatedStorage > Config > EffectConfig
 
@@ -392,7 +392,87 @@ GameConfig.Data = {
 }
 
 return GameConfig
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">RankConfig</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX4"><Properties><string name="Name">IconConfig</string><ProtectedString name="Source"><![CDATA[--[[
+	IconConfig (ModuleScript)
+	Emplacement : ReplicatedStorage > Config > IconConfig
+
+	Icônes de l'interface. Les images PNG sont fournies dans le dossier assets/icons/ du projet.
+
+	COMMENT LES ACTIVER (une seule fois) :
+	1. Studio > onglet View > Asset Manager > Bulk Import > sélectionne tous les PNG de assets/icons/
+	   (ou Home > Game Settings > ... ; chaque image passe par la modération Roblox, quelques minutes).
+	2. Dans l'Asset Manager, clic droit sur une image > "Copy ID to clipboard".
+	3. Colle l'identifiant ci-dessous, sous la forme "rbxassetid://123456789".
+
+	Tant qu'une entrée est vide (""), l'interface affiche l'emoji de secours à la place :
+	le jeu fonctionne donc même sans uploader les images.
+]]
+
+local IconConfig = {}
+
+IconConfig.Images = {
+	Bag = "", -- assets/icons/bag.png
+	Shop = "", -- assets/icons/shop.png
+	Index = "", -- assets/icons/index.png
+	Ranks = "", -- assets/icons/ranks.png
+	Home = "", -- assets/icons/home.png
+	Sell = "", -- assets/icons/sell.png
+	Cash = "", -- assets/icons/cash.png (billet vert du HUD et des étiquettes du tapis)
+	Sword = "", -- assets/icons/sword.png
+	Egg = "", -- assets/icons/egg.png (œuf blanc, teinté selon la rareté)
+	Attack = "", -- assets/icons/attack.png (bouton tactile)
+	Star = "", -- assets/icons/star.png (bouton "Équiper les meilleurs")
+	Close = "", -- assets/icons/close.png
+	-- Effets d'attaque
+	Fire = "", -- assets/icons/fire.png
+	Ice = "", -- assets/icons/ice.png
+	Lightning = "", -- assets/icons/lightning.png
+	Shadow = "", -- assets/icons/shadow.png
+	Light = "", -- assets/icons/light.png
+	Rainbow = "", -- assets/icons/rainbow.png
+}
+
+-- Emoji utilisés quand l'image n'est pas renseignée
+IconConfig.Fallback = {
+	Bag = "🎒",
+	Shop = "🛒",
+	Index = "📖",
+	Ranks = "📈",
+	Home = "🏠",
+	Sell = "💰",
+	Cash = "$",
+	Sword = "🗡️",
+	Egg = "🥚",
+	Attack = "⚔️",
+	Star = "⭐",
+	Close = "✕",
+	Fire = "🔥",
+	Ice = "❄️",
+	Lightning = "⚡",
+	Shadow = "🌑",
+	Light = "✨",
+	Rainbow = "🌈",
+}
+
+-- Retourne l'identifiant d'image ("" si absent)
+function IconConfig.GetImage(name)
+	local id = IconConfig.Images[name]
+	if type(id) == "string" and id ~= "" then
+		return id
+	end
+	return ""
+end
+
+function IconConfig.GetFallback(name)
+	return IconConfig.Fallback[name] or "?"
+end
+
+function IconConfig.HasImage(name)
+	return IconConfig.GetImage(name) ~= ""
+end
+
+return IconConfig
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">RankConfig</string><ProtectedString name="Source"><![CDATA[--[[
 	RankConfig (ModuleScript)
 	Emplacement : ReplicatedStorage > Config > RankConfig
 
@@ -435,7 +515,7 @@ function RankConfig.GetNextRank(totalEarned)
 end
 
 return RankConfig
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX5"><Properties><string name="Name">SlimeConfig</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">SlimeConfig</string><ProtectedString name="Source"><![CDATA[--[[
 	SlimeConfig (ModuleScript)
 	Emplacement : ReplicatedStorage > Config > SlimeConfig
 
@@ -554,7 +634,7 @@ function SlimeConfig.Get(id)
 end
 
 return SlimeConfig
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX6"><Properties><string name="Name">SwordConfig</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX7"><Properties><string name="Name">SwordConfig</string><ProtectedString name="Source"><![CDATA[--[[
 	SwordConfig (ModuleScript)
 	Emplacement : ReplicatedStorage > Config > SwordConfig
 
@@ -673,7 +753,7 @@ function SwordConfig.Get(id)
 end
 
 return SwordConfig
-]]></ProtectedString></Properties></Item></Item><Item class="Folder" referent="RBX12"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX8"><Properties><string name="Name">CombatMath</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item></Item><Item class="Folder" referent="RBX13"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">CombatMath</string><ProtectedString name="Source"><![CDATA[--[[
 	CombatMath (ModuleScript)
 	Emplacement : ReplicatedStorage > Shared > CombatMath
 
@@ -773,7 +853,7 @@ function CombatMath.GetEggAttack(item)
 end
 
 return CombatMath
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX9"><Properties><string name="Name">EggBuilder</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">EggBuilder</string><ProtectedString name="Source"><![CDATA[--[[
 	EggBuilder (ModuleScript)
 	Emplacement : ReplicatedStorage > Shared > EggBuilder
 
@@ -784,13 +864,14 @@ return CombatMath
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EggConfig = require(ReplicatedStorage.Config.EggConfig)
+local IconConfig = require(ReplicatedStorage.Config.IconConfig)
 local Util = require(ReplicatedStorage.Shared.Util)
 
 local EggBuilder = {}
 
 -- Largeur de chaque couche, du bas vers le haut (forme d'œuf)
-local PROFILE = { 1.0, 1.6, 2.0, 2.2, 2.1, 1.7, 1.1 }
-local LAYER_HEIGHT = 0.4
+local PROFILE = { 0.9, 1.5, 1.9, 2.15, 2.25, 2.2, 2.0, 1.6, 1.1 }
+local LAYER_HEIGHT = 0.32
 
 function EggBuilder.GetHeight(scale)
 	return #PROFILE * LAYER_HEIGHT * (scale or 1)
@@ -949,27 +1030,37 @@ function EggBuilder.AddLabel(model, rarityId, variantId, price)
 	local textWidth = #priceText * 16 + 10
 	local totalWidth = 34 + 6 + textWidth
 
-	local icon = Instance.new("Frame")
-	icon.Size = UDim2.fromOffset(34, 22)
-	icon.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -11)
-	icon.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
-	icon.BorderSizePixel = 0
-	icon.Parent = priceRow
-	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0, 5)
-	iconCorner.Parent = icon
-	local iconStroke = Instance.new("UIStroke")
-	iconStroke.Thickness = 2
-	iconStroke.Color = Color3.fromRGB(20, 80, 20)
-	iconStroke.Parent = icon
-	local dollar = Instance.new("TextLabel")
-	dollar.BackgroundTransparency = 1
-	dollar.Size = UDim2.fromScale(1, 1)
-	dollar.Font = Enum.Font.FredokaOne
-	dollar.Text = "$"
-	dollar.TextColor3 = Color3.new(1, 1, 1)
-	dollar.TextSize = 18
-	dollar.Parent = icon
+	if IconConfig.HasImage("Cash") then
+		local image = Instance.new("ImageLabel")
+		image.BackgroundTransparency = 1
+		image.Image = IconConfig.GetImage("Cash")
+		image.ScaleType = Enum.ScaleType.Fit
+		image.Size = UDim2.fromOffset(34, 34)
+		image.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -17)
+		image.Parent = priceRow
+	else
+		local icon = Instance.new("Frame")
+		icon.Size = UDim2.fromOffset(34, 22)
+		icon.Position = UDim2.new(0.5, -totalWidth / 2, 0.5, -11)
+		icon.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
+		icon.BorderSizePixel = 0
+		icon.Parent = priceRow
+		local iconCorner = Instance.new("UICorner")
+		iconCorner.CornerRadius = UDim.new(0, 5)
+		iconCorner.Parent = icon
+		local iconStroke = Instance.new("UIStroke")
+		iconStroke.Thickness = 2
+		iconStroke.Color = Color3.fromRGB(20, 80, 20)
+		iconStroke.Parent = icon
+		local dollar = Instance.new("TextLabel")
+		dollar.BackgroundTransparency = 1
+		dollar.Size = UDim2.fromScale(1, 1)
+		dollar.Font = Enum.Font.FredokaOne
+		dollar.Text = "$"
+		dollar.TextColor3 = Color3.new(1, 1, 1)
+		dollar.TextSize = 18
+		dollar.Parent = icon
+	end
 
 	local priceLabel = Instance.new("TextLabel")
 	priceLabel.BackgroundTransparency = 1
@@ -991,7 +1082,7 @@ function EggBuilder.AddLabel(model, rarityId, variantId, price)
 end
 
 return EggBuilder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX10"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[--[[
 	Remotes (ModuleScript)
 	Emplacement : ReplicatedStorage > Shared > Remotes
 
@@ -1055,7 +1146,7 @@ function Remotes.Get(name)
 end
 
 return Remotes
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX11"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX12"><Properties><string name="Name">Util</string><ProtectedString name="Source"><![CDATA[--[[
 	Util (ModuleScript)
 	Emplacement : ReplicatedStorage > Shared > Util
 

@@ -97,33 +97,115 @@ local function buildZones(map)
 	end
 end
 
--- Un arbre low poly : tronc + 3 blocs de feuillage
+-- Palettes de feuillage (vert classique, vert clair, et quelques arbres colorés)
+local LEAF_PALETTES = {
+	{ Color3.fromRGB(52, 150, 68), Color3.fromRGB(70, 180, 82), Color3.fromRGB(96, 208, 104) },
+	{ Color3.fromRGB(62, 170, 92), Color3.fromRGB(88, 200, 110), Color3.fromRGB(120, 225, 130) },
+	{ Color3.fromRGB(46, 140, 80), Color3.fromRGB(60, 165, 90), Color3.fromRGB(80, 190, 100) },
+	{ Color3.fromRGB(230, 120, 150), Color3.fromRGB(245, 150, 180), Color3.fromRGB(255, 185, 205) }, -- cerisier
+}
+
+-- Un arbre cartoon : tronc effilé en deux segments, racines, feuillage en boules étagées
 local function buildTree(parent, position, rng)
-	local scale = rng:NextNumber(0.8, 1.4)
-	local rotation = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
-	local trunk = newPart("Trunk", Vector3.new(1.4, 6, 1.4) * scale, CFrame.new(position + Vector3.new(0, 3 * scale, 0)) * rotation, Color3.fromRGB(120, 80, 45), Enum.Material.Wood, parent)
-	local greens = {
-		Color3.fromRGB(60, 160, 70),
-		Color3.fromRGB(75, 185, 80),
-		Color3.fromRGB(95, 205, 95),
-	}
-	local sizes = { 7, 5.2, 3.4 }
-	local heights = { 1.6, 2.2, 2.2 }
-	local y = 6 * scale
+	local scale = rng:NextNumber(0.8, 1.5)
+	local yaw = rng:NextNumber(0, math.pi * 2)
+	local rotation = CFrame.Angles(0, yaw, 0)
+	local model = Instance.new("Model")
+	model.Name = "Tree"
+	model.Parent = parent
+
+	local barkColor = Color3.fromRGB(110 + rng:NextInteger(-15, 15), 72 + rng:NextInteger(-10, 10), 40)
+
+	-- Tronc : cylindres verticaux (l'axe d'un Cylinder est X, on le redresse avec une rotation de 90° sur Z)
+	local upright = CFrame.Angles(0, 0, math.rad(90))
+	local lowerHeight, upperHeight = 4.2 * scale, 3.4 * scale
+	local trunk = newPart("Trunk", Vector3.new(lowerHeight, 2.0 * scale, 2.0 * scale), CFrame.new(position + Vector3.new(0, lowerHeight / 2, 0)) * rotation * upright, barkColor, Enum.Material.Wood, model)
+	trunk.Shape = Enum.PartType.Cylinder
+	local upper = newPart("TrunkTop", Vector3.new(upperHeight, 1.4 * scale, 1.4 * scale), CFrame.new(position + Vector3.new(0, lowerHeight + upperHeight / 2 - 0.2, 0)) * rotation * upright, barkColor, Enum.Material.Wood, model)
+	upper.Shape = Enum.PartType.Cylinder
+
+	-- Racines
 	for i = 1, 3 do
-		local size = Vector3.new(sizes[i], heights[i], sizes[i]) * scale
-		local twist = CFrame.Angles(0, math.rad(i * 25), 0)
-		newPart("Leaves", size, CFrame.new(position + Vector3.new(0, y + size.Y / 2, 0)) * rotation * twist, greens[i], Enum.Material.SmoothPlastic, parent)
-		y = y + size.Y
+		local angle = yaw + i * (math.pi * 2 / 3)
+		local root = newPart("Root", Vector3.new(0.9, 0.7, 2.2) * scale, CFrame.new(position + Vector3.new(math.cos(angle) * 1.3 * scale, 0.3 * scale, math.sin(angle) * 1.3 * scale)) * CFrame.Angles(0, -angle + math.rad(90), 0) * CFrame.Angles(math.rad(-15), 0, 0), barkColor, Enum.Material.Wood, model)
+		root.CanCollide = false
 	end
-	return trunk
+
+	-- Branches courtes
+	for i = 1, 2 do
+		local angle = yaw + i * math.pi + rng:NextNumber(-0.5, 0.5)
+		local branch = newPart("Branch", Vector3.new(2.6 * scale, 0.5 * scale, 0.5 * scale), CFrame.new(position + Vector3.new(math.cos(angle) * 1.2 * scale, lowerHeight + 0.8 * scale, math.sin(angle) * 1.2 * scale)) * CFrame.Angles(0, -angle, 0) * CFrame.Angles(0, 0, math.rad(35)), barkColor, Enum.Material.Wood, model)
+		branch.Shape = Enum.PartType.Cylinder
+		branch.CanCollide = false
+	end
+
+	-- Feuillage : grosse boule centrale, couronne de boules autour, petite boule au sommet
+	local palette = LEAF_PALETTES[rng:NextNumber() < 0.12 and 4 or rng:NextInteger(1, 3)]
+	local crownY = lowerHeight + upperHeight + 1.2 * scale
+	local function leaf(offset, diameter, color)
+		local ball = newPart("Leaves", Vector3.new(diameter, diameter, diameter), CFrame.new(position + offset), color, Enum.Material.SmoothPlastic, model)
+		ball.Shape = Enum.PartType.Ball
+		ball.CanCollide = false
+		return ball
+	end
+	leaf(Vector3.new(0, crownY, 0), 7.5 * scale, palette[1])
+	local ringCount = rng:NextInteger(4, 5)
+	for i = 1, ringCount do
+		local angle = yaw + i * (math.pi * 2 / ringCount)
+		local radius = 2.6 * scale
+		leaf(Vector3.new(math.cos(angle) * radius, crownY - 0.9 * scale + rng:NextNumber(-0.4, 0.6) * scale, math.sin(angle) * radius), rng:NextNumber(4.2, 5.4) * scale, palette[(i % 2) + 1])
+	end
+	leaf(Vector3.new(0.4 * scale, crownY + 2.8 * scale, -0.3 * scale), 4.4 * scale, palette[3])
+
+	model.PrimaryPart = trunk
+	return model
 end
 
+-- Rocher : un gros bloc incliné + deux petits blocs + une touche de mousse
 local function buildRock(parent, position, rng)
-	local size = Vector3.new(rng:NextNumber(2.5, 6), rng:NextNumber(1.8, 4), rng:NextNumber(2.5, 6))
-	local rotation = CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), rng:NextNumber(0, math.pi * 2), math.rad(rng:NextNumber(-12, 12)))
+	local model = Instance.new("Model")
+	model.Name = "Rock"
+	model.Parent = parent
 	local grey = 110 + rng:NextInteger(-15, 20)
-	newPart("Rock", size, CFrame.new(position + Vector3.new(0, size.Y * 0.35, 0)) * rotation, Color3.fromRGB(grey, grey, grey + 8), Enum.Material.Slate, parent)
+	local color = Color3.fromRGB(grey, grey, grey + 8)
+	local size = Vector3.new(rng:NextNumber(3, 6), rng:NextNumber(2.2, 4.2), rng:NextNumber(3, 6))
+	local rotation = CFrame.Angles(math.rad(rng:NextNumber(-14, 14)), rng:NextNumber(0, math.pi * 2), math.rad(rng:NextNumber(-14, 14)))
+	local main = newPart("Rock", size, CFrame.new(position + Vector3.new(0, size.Y * 0.35, 0)) * rotation, color, Enum.Material.Slate, model)
+	for i = 1, 2 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local small = Vector3.new(rng:NextNumber(1.2, 2.4), rng:NextNumber(1, 1.8), rng:NextNumber(1.2, 2.4))
+		newPart("Pebble", small, CFrame.new(position + Vector3.new(math.cos(angle) * size.X * 0.6, small.Y * 0.3, math.sin(angle) * size.Z * 0.6)) * CFrame.Angles(0, angle, math.rad(rng:NextNumber(-20, 20))), color:Lerp(Color3.new(0, 0, 0), 0.08), Enum.Material.Slate, model)
+	end
+	local moss = newPart("Moss", Vector3.new(size.X * 0.55, 0.5, size.Z * 0.55), CFrame.new(position + Vector3.new(0, size.Y * 0.75, 0)) * rotation, Color3.fromRGB(90, 170, 80), Enum.Material.Grass, model)
+	moss.Shape = Enum.PartType.Ball
+	moss.CanCollide = false
+	model.PrimaryPart = main
+	return model
+end
+
+-- Buisson : 3 boules vertes serrées
+local function buildBush(parent, position, rng)
+	local scale = rng:NextNumber(0.7, 1.2)
+	for i = 1, 3 do
+		local angle = i * (math.pi * 2 / 3) + rng:NextNumber(0, 1)
+		local diameter = rng:NextNumber(2, 2.8) * scale
+		local ball = newPart("Bush", Vector3.new(diameter, diameter, diameter), CFrame.new(position + Vector3.new(math.cos(angle) * 0.8 * scale, diameter * 0.35, math.sin(angle) * 0.8 * scale)), Color3.fromRGB(60 + rng:NextInteger(0, 30), 165 + rng:NextInteger(0, 30), 80), Enum.Material.SmoothPlastic, parent)
+		ball.Shape = Enum.PartType.Ball
+		ball.CanCollide = false
+	end
+end
+
+-- Fleur : tige + corolle colorée
+local FLOWER_COLORS = { Color3.fromRGB(255, 90, 120), Color3.fromRGB(255, 210, 60), Color3.fromRGB(120, 150, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 150, 50) }
+local function buildFlower(parent, position, rng)
+	local stem = newPart("Stem", Vector3.new(0.2, 1.2, 0.2), CFrame.new(position + Vector3.new(0, 0.6, 0)), Color3.fromRGB(70, 160, 70), Enum.Material.SmoothPlastic, parent)
+	stem.CanCollide = false
+	local head = newPart("Flower", Vector3.new(0.9, 0.5, 0.9), CFrame.new(position + Vector3.new(0, 1.3, 0)), FLOWER_COLORS[rng:NextInteger(1, #FLOWER_COLORS)], Enum.Material.SmoothPlastic, parent)
+	head.Shape = Enum.PartType.Ball
+	head.CanCollide = false
+	local center = newPart("Center", Vector3.new(0.35, 0.35, 0.35), CFrame.new(position + Vector3.new(0, 1.5, 0)), Color3.fromRGB(255, 230, 90), Enum.Material.SmoothPlastic, parent)
+	center.Shape = Enum.PartType.Ball
+	center.CanCollide = false
 end
 
 -- Vérifie qu'une position ne gêne pas le jeu (chemins, zones, tapis, spawn)
@@ -150,18 +232,25 @@ end
 local function buildNature(map)
 	local nature = folder("Nature", map)
 	local rng = Random.new(42) -- décor identique à chaque démarrage
-	local trees, rocks = 0, 0
+	local trees, rocks, bushes, flowers = 0, 0, 0, 0
 	local attempts = 0
-	while (trees < 70 or rocks < 30) and attempts < 2000 do
+	while (trees < 60 or rocks < 25 or bushes < 40 or flowers < 90) and attempts < 4000 do
 		attempts = attempts + 1
 		local position = Vector3.new(rng:NextNumber(-160, 160), 0, rng:NextNumber(-410, 110))
 		if isFree(position) then
-			if trees < 70 and rng:NextNumber() < 0.7 then
+			local roll = rng:NextNumber()
+			if trees < 60 and roll < 0.3 then
 				buildTree(nature, position, rng)
 				trees = trees + 1
-			elseif rocks < 30 then
+			elseif rocks < 25 and roll < 0.42 then
 				buildRock(nature, position, rng)
 				rocks = rocks + 1
+			elseif bushes < 40 and roll < 0.6 then
+				buildBush(nature, position, rng)
+				bushes = bushes + 1
+			elseif flowers < 90 then
+				buildFlower(nature, position, rng)
+				flowers = flowers + 1
 			end
 		end
 	end

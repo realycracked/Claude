@@ -36,24 +36,79 @@ function SlimeBuilder.Build(def)
 	local model = Instance.new("Model")
 	model.Name = def.Name
 
-	-- Corps (ellipsoïde)
+	-- Corps gélatineux : enveloppe translucide + cœur plus foncé
 	local body = newPart("Body", SlimeBuilder.GetBodySize(def), def.Color, model)
 	body.CanQuery = true
+	body.Transparency = 0.22
+	body.Reflectance = 0.04
 	local mesh = Instance.new("SpecialMesh")
 	mesh.MeshType = Enum.MeshType.Sphere
 	mesh.Parent = body
 	model.PrimaryPart = body
 
-	-- Yeux
+	local function ellipsoid(name, partSize, color, offset)
+		local part = newPart(name, partSize, color, model)
+		part.CanQuery = false
+		part.CFrame = body.CFrame * CFrame.new(offset)
+		local partMesh = Instance.new("SpecialMesh")
+		partMesh.MeshType = Enum.MeshType.Sphere
+		partMesh.Parent = part
+		return part
+	end
+
+	local core = ellipsoid("Core", SlimeBuilder.GetBodySize(def) * 0.6, def.Color:Lerp(Color3.new(0, 0, 0), 0.35), Vector3.new(0, -size * 0.04, 0))
+	core.Transparency = 0.05
+
+	-- Reflet brillant en haut à gauche
+	local highlight = ellipsoid("Highlight", Vector3.new(size * 0.2, size * 0.08, size * 0.14), Color3.new(1, 1, 1), Vector3.new(-size * 0.2, size * 0.24, -size * 0.3))
+	highlight.Transparency = 0.3
+	highlight.CFrame = highlight.CFrame * CFrame.Angles(math.rad(-30), math.rad(20), math.rad(-25))
+
+	-- Yeux : blanc + pupille + reflet
 	for _, side in ipairs({ -1, 1 }) do
-		local eye = newPart("Eye", Vector3.new(size * 0.18, size * 0.18, size * 0.18), def.EyeColor, model)
-		eye.Shape = Enum.PartType.Ball
-		eye.CanQuery = false
-		eye.CFrame = body.CFrame * CFrame.new(side * size * 0.17, size * 0.12, -size * 0.4)
-		local shine = newPart("Shine", Vector3.new(size * 0.06, size * 0.06, size * 0.06), Color3.new(1, 1, 1), model)
+		local sclera = ellipsoid("Eye", Vector3.new(size * 0.2, size * 0.24, size * 0.2), Color3.new(1, 1, 1), Vector3.new(side * size * 0.18, size * 0.14, -size * 0.4))
+		local pupil = newPart("Pupil", Vector3.new(size * 0.11, size * 0.11, size * 0.11), def.EyeColor, model)
+		pupil.Shape = Enum.PartType.Ball
+		pupil.CanQuery = false
+		pupil.CFrame = sclera.CFrame * CFrame.new(0, -size * 0.01, -size * 0.07)
+		local shine = newPart("Shine", Vector3.new(size * 0.045, size * 0.045, size * 0.045), Color3.new(1, 1, 1), model)
 		shine.Shape = Enum.PartType.Ball
 		shine.CanQuery = false
-		shine.CFrame = eye.CFrame * CFrame.new(size * 0.03, size * 0.04, -size * 0.07)
+		shine.CFrame = pupil.CFrame * CFrame.new(size * 0.03, size * 0.035, -size * 0.04)
+	end
+
+	-- Bouche
+	local mouth = newPart("Mouth", Vector3.new(size * 0.2, size * 0.04, size * 0.05), Color3.fromRGB(60, 20, 35), model)
+	mouth.CanQuery = false
+	mouth.CFrame = body.CFrame * CFrame.new(0, -size * 0.03, -size * 0.49)
+
+	-- Petites gouttes autour de la base
+	for i = 1, 3 do
+		local angle = i * (math.pi * 2 / 3) + 0.4
+		local drop = ellipsoid("Drop", Vector3.new(size * 0.16, size * 0.12, size * 0.16), def.Color, Vector3.new(math.cos(angle) * size * 0.42, -size * 0.3, math.sin(angle) * size * 0.42))
+		drop.Transparency = 0.2
+	end
+
+	-- Couronne pour le Boss
+	if def.Id == "Boss" then
+		local crownY = size * 0.75 / 2 + size * 0.02
+		local base = newPart("Crown", Vector3.new(size * 0.06, size * 0.42, size * 0.42), Color3.fromRGB(255, 200, 40), model)
+		base.Shape = Enum.PartType.Cylinder
+		base.Material = Enum.Material.Metal
+		base.CanQuery = false
+		base.CFrame = body.CFrame * CFrame.new(0, crownY, 0) * CFrame.Angles(0, 0, math.rad(90))
+		for i = 1, 5 do
+			local angle = i * (math.pi * 2 / 5)
+			local spike = newPart("Spike", Vector3.new(size * 0.09, size * 0.16, size * 0.09), Color3.fromRGB(255, 220, 60), model)
+			spike.Material = Enum.Material.Neon
+			spike.CanQuery = false
+			spike.CFrame = body.CFrame * CFrame.new(math.cos(angle) * size * 0.17, crownY + size * 0.1, math.sin(angle) * size * 0.17)
+		end
+		local gem = newPart("Gem", Vector3.new(size * 0.1, size * 0.1, size * 0.1), Color3.fromRGB(255, 60, 90), model)
+		gem.Shape = Enum.PartType.Ball
+		gem.Material = Enum.Material.Neon
+		gem.CanQuery = false
+		gem.CFrame = body.CFrame * CFrame.new(0, crownY + size * 0.05, -size * 0.2)
 	end
 
 	-- Nom + barre de vie
