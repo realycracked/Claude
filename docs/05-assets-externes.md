@@ -42,6 +42,12 @@ Pour garder la texture d'origine, ajoute l'attribut booléen `KeepColor = true` 
 (onglet *Properties* → *Attributes* → `+`). Les taches, ornements, lumière, particules et aura
 restent ajoutés par le code.
 
+### Arbres déjà fournis dans le dépôt : `assets/models/trees/`
+
+Trois arbres low poly (Quaternius, Marc Solà, Poly by Google, trouvés sur poly.pizza) sont
+inclus avec leurs fichiers `.fbx` / `.obj`. Le `README.md` du dossier explique l'import et
+les licences (attribution à citer pour les modèles CC-BY).
+
 ### Arbres : `ReplicatedStorage > Assets > TreeModels`
 
 Dépose un ou plusieurs **Models** d'arbres (n'importe quel nom). `MapBuilder` en choisit un au
