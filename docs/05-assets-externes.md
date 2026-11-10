@@ -33,6 +33,11 @@ Pour les icônes 2D : le pack fourni dans `assets/icons/` suffit. Si tu veux d'a
 
 ## Brancher les meshs dans le jeu
 
+### Œuf déjà fourni dans le dépôt : `assets/models/eggs/`
+
+Un œuf low poly (Poly by Google, trouvé sur poly.pizza, fichier `.obj` + texture) est inclus ;
+son `README.md` explique l'import, le renommage par rareté et la licence (CC-BY).
+
 ### Œufs : `ReplicatedStorage > Assets > EggMeshes`
 
 Place un **MeshPart** (ou un Model) **nommé comme la rareté** : `Common`, `Uncommon`, `Rare`,
